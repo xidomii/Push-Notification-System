@@ -7,9 +7,11 @@ import os
 
 
 def create_app():
-    app = Flask(__name__)
-
     base_dir = os.path.abspath(os.path.dirname(__file__))
+    frontend_dir = os.path.join(base_dir, "..", "frontend")
+
+    app = Flask(__name__, static_folder=frontend_dir, static_url_path="")
+
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(base_dir, 'smartserve.db')}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
