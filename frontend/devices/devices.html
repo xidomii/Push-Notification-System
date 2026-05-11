@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Geräte – Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">NOTIFY<strong>ADMIN</strong></span>
+    </div>
+    <nav class="topbar-nav">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/groups">Gruppen</a>
+      <a href="/devices" class="active">Geräte</a>
+      <a href="/logs">Logs</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="status-dot online"></span>
+      <span>SQLite verbunden</span>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Geräteverwaltung</h1>
+        <p class="page-sub">Registrierte Endgeräte verwalten und überwachen</p>
+      </div>
+      <button class="btn btn-primary" onclick="toggleForm()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Gerät hinzufügen
+      </button>
+    </div>
+
+    <!-- Add Form -->
+    <div id="add-form" class="add-form">
+      <div class="add-form-grid">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" id="f-name" class="input-field" placeholder="Watch-Lager-01" autocomplete="off" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">MAC-Adresse</label>
+          <input type="text" id="f-mac" class="input-field" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" oninput="fmtMac(this)" autocomplete="off" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-ghost" onclick="toggleForm()">Abbrechen</button>
+        <button class="btn btn-primary" onclick="addDevice()">Speichern</button>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+            <path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <input type="text" id="search" class="input-field input-sm search-input" placeholder="Name oder MAC suchen…" oninput="render()" />
+        </div>
+        <select id="filter" class="select-field" onchange="render()">
+          <option value="all">Alle Status</option>
+          <option value="online">Online</option>
+          <option value="offline">Offline</option>
+        </select>
+      </div>
+      <span class="device-count" id="device-count">– Geräte</span>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>MAC-Adresse</th>
+            <th>Status</th>
+            <th>Letzte Aktivität</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

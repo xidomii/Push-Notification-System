@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benachrichtigungsgruppen – Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">NOTIFY<strong>ADMIN</strong></span>
+    </div>
+    <nav class="topbar-nav">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/groups" class="active">Gruppen</a>
+      <a href="/devices">Geräte</a>
+      <a href="/logs">Logs</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="status-dot online"></span>
+      <span>SQLite verbunden</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- LEFT PANEL: Group list + create -->
+    <aside class="panel panel-left">
+      <div class="panel-header">
+        <h2>Gruppen</h2>
+        <span class="badge" id="group-count">0</span>
+      </div>
+
+      <div class="create-group-form">
+        <input
+          type="text"
+          id="new-group-name"
+          class="input-field"
+          placeholder="Gruppenname (z.B. Küche)"
+          maxlength="48"
+          autocomplete="off"
+        />
+        <button class="btn btn-primary" id="btn-create-group">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Anlegen
+        </button>
+      </div>
+
+      <ul class="group-list" id="group-list">
+        <!-- populated by JS -->
+      </ul>
+
+      <p class="empty-hint" id="empty-hint">Noch keine Gruppen angelegt.</p>
+    </aside>
+
+    <!-- RIGHT PANEL: Device assignment -->
+    <section class="panel panel-right">
+      <div class="panel-header">
+        <h2 id="panel-title">Gruppe auswählen</h2>
+        <div class="panel-actions" id="panel-actions" style="display:none">
+          <button class="btn btn-ghost btn-sm" id="btn-rename-group">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M9.5 1.5l2 2-7 7H2.5v-2l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            Umbenennen
+          </button>
+          <button class="btn btn-danger btn-sm" id="btn-delete-group">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 3.5h9M5 3.5V2h3v1.5M4 3.5l.5 7h4l.5-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Löschen
+          </button>
+        </div>
+      </div>
+
+      <div id="no-selection" class="empty-state">
+        <div class="empty-icon">⊞</div>
+        <p>Wähle eine Gruppe aus, um Geräte zuzuweisen.</p>
+      </div>
+
+      <div id="device-section" style="display:none">
+        <div class="device-toolbar">
+          <input
+            type="text"
+            id="device-search"
+            class="input-field input-sm"
+            placeholder="Gerät suchen…"
+          />
+          <button class="btn btn-ghost btn-sm" id="btn-select-all">Alle</button>
+          <button class="btn btn-ghost btn-sm" id="btn-deselect-all">Keine</button>
+        </div>
+
+        <ul class="device-list" id="device-list">
+          <!-- populated by JS -->
+        </ul>
+
+        <div class="save-bar">
+          <span class="save-hint" id="save-hint">0 Geräte ausgewählt</span>
+          <button class="btn btn-primary" id="btn-save-assignment">
+            Zuweisungen speichern
+          </button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Rename Modal -->
+  <div class="modal-backdrop" id="rename-modal" style="display:none">
+    <div class="modal">
+      <h3>Gruppe umbenennen</h3>
+      <input type="text" id="rename-input" class="input-field" maxlength="48" />
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btn-rename-cancel">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-rename-confirm">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
