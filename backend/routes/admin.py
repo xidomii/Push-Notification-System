@@ -1,7 +1,10 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, send_from_directory
 from models import Device, Group
+import os
 
 admin_bp = Blueprint("admin", __name__)
+
+FRONTEND_TEMPLATES = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "templates")
 
 
 @admin_bp.route("/")
@@ -12,12 +15,12 @@ def dashboard():
 
 @admin_bp.route("/devices")
 def devices():
-    return render_template("devices.html", devices=Device.query.all())
+    return send_from_directory(FRONTEND_TEMPLATES, "devices.html")
 
 
 @admin_bp.route("/groups")
 def groups():
-    return render_template("groups.html", groups=Group.query.all(), devices=Device.query.all())
+    return send_from_directory(FRONTEND_TEMPLATES, "groups.html")
 
 
 @admin_bp.route("/notifications")
