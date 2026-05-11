@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="row">
+
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h5>Geräte</h5>
+            <p>{{ device_count }}</p>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h5>Gruppen</h5>
+            <p>{{ group_count }}</p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

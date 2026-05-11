@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Geräte</h1>
+
+<button class="btn btn-primary mb-3" onclick="toggleForm()">+ Gerät hinzufügen</button>
+
+<div id="add-form" class="card p-3 mb-4" style="display:none">
+  <div class="row g-2">
+    <div class="col-md-4">
+      <input type="text" id="f-name" class="form-control" placeholder="Name">
+    </div>
+    <div class="col-md-4">
+      <input type="text" id="f-mac" class="form-control" placeholder="AA:BB:CC:DD:EE:FF" maxlength="17" oninput="fmtMac(this)">
+    </div>
+    <div class="col-md-4">
+      <button class="btn btn-success me-2" onclick="addDevice()">Speichern</button>
+      <button class="btn btn-secondary" onclick="toggleForm()">Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<table class="table table-bordered">
+  <thead class="table-dark">
+    <tr>
+      <th>Name</th>
+      <th>MAC-Adresse</th>
+      <th>Status</th>
+      <th>Letzte Aktivität</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="tbody">
+    {% for d in devices %}
+    <tr id="row-{{ d.id }}">
+      <td>{{ d.name }}</td>
+      <td><code>{{ d.mac }}</code></td>
+      <td>
+        {% if d.status == 'online' %}
+          <span class="badge bg-success">Online</span>
+        {% else %}
+          <span class="badge bg-secondary">Offline</span>
+        {% endif %}
+      </td>
+      <td>{{ d.last_seen or '–' }}</td>
+      <td>
+        <button class="btn btn-danger btn-sm" onclick="del({{ d.id }})">Löschen</button>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="text-muted">Keine Geräte vorhanden</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+function toggleForm() {
+  const f = document.getElementById("add-form");
+  f.style.display = f.style.display === "block" ? "none" : "block";
+}
+
+function fmtMac(input) {
+  let v = input.value.replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  v = v.match(/.{1,2}/g)?.join(":") || v;
+  input.value = v.slice(0, 17);
+}
+
+async function addDevice() {
+  const name = document.getElementById("f-name").value.trim();
+  const mac  = document.getElementById("f-mac").value.trim();
+  if (!name || mac.length !== 17) return alert("Name und gültige MAC erforderlich");
+
+  const res = await fetch("/api/devices", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, mac }),
+  });
+
+  if (res.status === 409) return alert("MAC bereits registriert");
+  if (!res.ok) return alert("Fehler beim Hinzufügen");
+  location.reload();
+}
+
+async function del(id) {
+  if (!confirm("Gerät löschen?")) return;
+  const res = await fetch(`/api/devices/${id}`, { method: "DELETE" });
+  if (res.ok) document.getElementById(`row-${id}`).remove();
+  else alert("Löschen fehlgeschlagen");
+}
+</script>
+{% endblock %}
