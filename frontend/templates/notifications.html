@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Benachrichtigungen – Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/notifications/style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">SMART<strong>SERVE</strong></span>
+    </div>
+    <nav class="topbar-nav">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/groups">Gruppen</a>
+      <a href="/devices">Geräte</a>
+      <a href="/notifications" class="active">Benachrichtigungen</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="status-dot online"></span>
+      <span>SQLite verbunden</span>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Benachrichtigungen</h1>
+        <p class="page-sub">Nachrichten an Gerätegruppen senden und Verlauf einsehen</p>
+      </div>
+    </div>
+
+    <!-- Send Form -->
+    <div class="send-form">
+      <div class="send-form-title">Neue Benachrichtigung</div>
+      <div class="send-form-grid">
+        <div class="form-group">
+          <label class="form-label" for="sel-group">Gruppe</label>
+          <select id="sel-group" class="select-field">
+            <option value="">— Gruppe wählen —</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="inp-message">Nachricht</label>
+          <input
+            type="text"
+            id="inp-message"
+            class="input-field"
+            placeholder="z.B. Tisch 5 ist bereit"
+            maxlength="500"
+            autocomplete="off"
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">&nbsp;</label>
+          <button id="btn-send" class="btn btn-primary">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M1.5 6.5L11.5 1.5L8.5 6.5L11.5 11.5L1.5 6.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+            </svg>
+            Senden
+          </button>
+        </div>
+      </div>
+      <div class="form-error" id="form-error"></div>
+    </div>
+
+    <!-- Notification List -->
+    <div class="toolbar">
+      <span class="toolbar-title">Verlauf</span>
+      <span class="notif-count" id="notif-count">0</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Gruppe</th>
+            <th>Nachricht</th>
+            <th>Gesendet</th>
+          </tr>
+        </thead>
+        <tbody id="notif-tbody">
+          <tr class="empty-row">
+            <td colspan="4">Noch keine Benachrichtigungen gesendet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/notifications/script.js"></script>
+</body>
+</html>

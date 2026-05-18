@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – SmartServe Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/dashboard/style.css" />
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-dot"></span>
+      <span class="brand-name">SMART<strong>SERVE</strong></span>
+    </div>
+    <nav class="topbar-nav">
+      <a href="/dashboard" class="active">Dashboard</a>
+      <a href="/groups">Gruppen</a>
+      <a href="/devices">Geräte</a>
+      <a href="/notifications">Benachrichtigungen</a>
+    </nav>
+    <div class="topbar-status">
+      <span class="status-dot online"></span>
+      <span>SQLite verbunden</span>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+
+    <div class="page-header">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-sub">Systemübersicht — SmartServe Admin</p>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stats-grid">
+      <a href="/devices" class="stat-card">
+        <span class="stat-label">Geräte</span>
+        <span class="stat-value loading" id="stat-devices">…</span>
+        <span class="stat-link">Verwalten →</span>
+      </a>
+      <a href="/groups" class="stat-card">
+        <span class="stat-label">Gruppen</span>
+        <span class="stat-value loading" id="stat-groups">…</span>
+        <span class="stat-link">Verwalten →</span>
+      </a>
+      <a href="/notifications" class="stat-card">
+        <span class="stat-label">Benachrichtigungen</span>
+        <span class="stat-value loading" id="stat-notifications">…</span>
+        <span class="stat-link">Verlauf →</span>
+      </a>
+    </div>
+
+    <!-- Recent Notifications -->
+    <div class="section-header">
+      <span class="section-title">Letzte Benachrichtigungen</span>
+      <a href="/notifications" class="section-link">Alle anzeigen →</a>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Gruppe</th>
+            <th>Nachricht</th>
+            <th>Gesendet</th>
+          </tr>
+        </thead>
+        <tbody id="recent-tbody">
+          <tr class="empty-row">
+            <td colspan="3">Laden…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script src="/static/dashboard/script.js"></script>
+</body>
+</html>
