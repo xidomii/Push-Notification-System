@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
-from models import db, Device, Group
+from datetime import datetime, timezone
+from models import db, Device, Group, Notification
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -111,3 +112,32 @@ def assign_devices(group_id):
     group.devices = Device.query.filter(Device.id.in_(device_ids)).all()
     db.session.commit()
     return jsonify(group.to_dict())
+
+
+# ── Notifications ─────────────────────────────────────────────────────────────
+
+@api_bp.route("/notifications", methods=["GET"])
+def get_notifications():
+    return jsonify([n.to_dict() for n in Notification.query.order_by(Notification.id.desc()).all()])
+
+
+@api_bp.route("/notifications", methods=["POST"])
+def add_notification():
+    body = request.get_json(force=True)
+    message  = (body.get("message") or "").strip()
+    group_id = body.get("group_id")
+
+    if not message:
+        return jsonify({"error": "Nachricht erforderlich"}), 400
+    if not group_id:
+        return jsonify({"error": "group_id erforderlich"}), 400
+
+    group = Group.query.get(group_id)
+    if not group:
+        return jsonify({"error": "Gruppe nicht gefunden"}), 404
+
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    notification = Notification(message=message, group_id=group_id, timestamp=ts)
+    db.session.add(notification)
+    db.session.commit()
+    return jsonify(notification.to_dict()), 201

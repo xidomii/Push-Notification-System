@@ -26,6 +26,23 @@ class Device(db.Model):
         }
 
 
+class Notification(db.Model):
+    id        = db.Column(db.Integer, primary_key=True)
+    message   = db.Column(db.String(500), nullable=False)
+    timestamp = db.Column(db.String(30), nullable=False)
+    group_id  = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=False)
+    group     = db.relationship("Group", backref="notifications")
+
+    def to_dict(self):
+        return {
+            "id":         self.id,
+            "message":    self.message,
+            "timestamp":  self.timestamp,
+            "group_id":   self.group_id,
+            "group_name": self.group.name if self.group else None,
+        }
+
+
 class Group(db.Model):
     id      = db.Column(db.Integer, primary_key=True)
     name    = db.Column(db.String(100), nullable=False, unique=True)

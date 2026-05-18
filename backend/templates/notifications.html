@@ -1,5 +1,142 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Notifications</h1>
-<p class="text-muted">Coming soon...</p>
+
+<div class="row mb-4">
+  <div class="col">
+    <h2>Benachrichtigungen</h2>
+    <p class="text-muted">Nachricht an eine Gerätegruppe senden.</p>
+  </div>
+</div>
+
+<!-- Send Form -->
+<div class="card mb-4">
+  <div class="card-header fw-semibold">Neue Benachrichtigung senden</div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label for="sel-group" class="form-label">Gruppe</label>
+        <select id="sel-group" class="form-select">
+          <option value="">— Gruppe wählen —</option>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="inp-message" class="form-label">Nachricht</label>
+        <input type="text" id="inp-message" class="form-control" placeholder="z.B. Tisch 5 ist bereit" maxlength="500" />
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button id="btn-send" class="btn btn-primary w-100">Senden</button>
+      </div>
+    </div>
+    <div id="form-error" class="text-danger mt-2" style="display:none"></div>
+  </div>
+</div>
+
+<!-- Notification List -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Gesendete Benachrichtigungen</span>
+    <span class="badge bg-secondary" id="notif-count">0</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>#</th>
+          <th>Gruppe</th>
+          <th>Nachricht</th>
+          <th>Gesendet</th>
+        </tr>
+      </thead>
+      <tbody id="notif-tbody">
+        <tr id="empty-row">
+          <td colspan="4" class="text-center text-muted py-4">Noch keine Benachrichtigungen.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+
+async function loadGroups() {
+  const res = await fetch(`${API}/groups`);
+  const groups = await res.json();
+  const sel = document.getElementById('sel-group');
+  groups.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = g.name;
+    sel.appendChild(opt);
+  });
+}
+
+async function loadNotifications() {
+  const res = await fetch(`${API}/notifications`);
+  const notifications = await res.json();
+
+  const tbody = document.getElementById('notif-tbody');
+  document.getElementById('notif-count').textContent = notifications.length;
+
+  if (notifications.length === 0) {
+    tbody.innerHTML = '<tr id="empty-row"><td colspan="4" class="text-center text-muted py-4">Noch keine Benachrichtigungen.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = notifications.map(n => `
+    <tr>
+      <td class="text-muted">${n.id}</td>
+      <td><span class="badge bg-primary">${escHtml(n.group_name)}</span></td>
+      <td>${escHtml(n.message)}</td>
+      <td class="text-muted">${formatTs(n.timestamp)}</td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('btn-send').addEventListener('click', async () => {
+  const groupId = parseInt(document.getElementById('sel-group').value);
+  const message = document.getElementById('inp-message').value.trim();
+  const errEl   = document.getElementById('form-error');
+
+  errEl.style.display = 'none';
+
+  if (!groupId) { showError('Bitte eine Gruppe auswählen.'); return; }
+  if (!message) { showError('Bitte eine Nachricht eingeben.'); return; }
+
+  const res = await fetch(`${API}/notifications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, group_id: groupId }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    showError(err.error || `Fehler ${res.status}`);
+    return;
+  }
+
+  document.getElementById('inp-message').value = '';
+  await loadNotifications();
+});
+
+function showError(msg) {
+  const el = document.getElementById('form-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function formatTs(iso) {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  return d.toLocaleDateString('de-AT') + ' ' + d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' });
+}
+
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadGroups();
+loadNotifications();
+</script>
+
 {% endblock %}
