@@ -10,7 +10,10 @@ def create_app():
     base_dir = os.path.abspath(os.path.dirname(__file__))
     frontend_dir = os.path.join(base_dir, "..", "frontend")
 
-    app = Flask(__name__, static_folder=frontend_dir, static_url_path="")
+    app = Flask(__name__,
+                template_folder=os.path.join(base_dir, "templates"),
+                static_folder=frontend_dir,
+                static_url_path="")
 
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(base_dir, 'smartserve.db')}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False

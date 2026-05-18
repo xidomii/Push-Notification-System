@@ -76,8 +76,9 @@ async function apiFetch(path, options = {}) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `HTTP ${res.status}`);
+    throw new Error(err.error || err.message || `HTTP ${res.status}`);
   }
+  if (res.status === 204) return {};
   return res.json();
 }
 
@@ -205,7 +206,7 @@ function renderDeviceList() {
         <div class="device-name">${escHtml(d.name)}</div>
         <div class="device-id">ID: ${d.id}</div>
       </div>
-      <span class="device-type">${escHtml(d.type)}</span>
+      <span class="device-type">${escHtml(d.mac || '')}</span>
     `;
     els.deviceList.appendChild(li);
   });
@@ -397,7 +398,7 @@ function showToast(msg, type = '') {
    UTILS
    ══════════════════════════════════════════════════════ */
 function escHtml(str) {
-  return str
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

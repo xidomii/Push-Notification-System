@@ -33,7 +33,7 @@ class Group(db.Model):
 
     def to_dict(self):
         return {
-            "id":      self.id,
-            "name":    self.name,
-            "devices": [d.to_dict() for d in self.devices],
+            "id":         self.id,
+            "name":       self.name,
+            "device_ids": [d.id for d in self.devices],
         }

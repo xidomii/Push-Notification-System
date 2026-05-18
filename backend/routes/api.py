@@ -63,10 +63,7 @@ def add_group():
         return jsonify({"error": "Gruppe existiert bereits"}), 409
 
     device_ids = body.get("device_ids", [])
-    if not device_ids:
-        return jsonify({"error": "Mindestens ein Gerät erforderlich"}), 400
-
-    devices = Device.query.filter(Device.id.in_(device_ids)).all()
+    devices = Device.query.filter(Device.id.in_(device_ids)).all() if device_ids else []
     group = Group(name=name, devices=devices)
     db.session.add(group)
     db.session.commit()
@@ -99,7 +96,7 @@ def delete_group(group_id):
     return "", 204
 
 
-@api_bp.route("/groups/<int:group_id>/devices", methods=["POST"])
+@api_bp.route("/groups/<int:group_id>/devices", methods=["POST", "PUT"])
 def assign_devices(group_id):
     group = Group.query.get(group_id)
     if not group:
