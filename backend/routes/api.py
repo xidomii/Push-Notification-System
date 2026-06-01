@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime, timezone
 from models import db, Device, Group, Notification
+import mqtt
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -140,4 +141,7 @@ def add_notification():
     notification = Notification(message=message, group_id=group_id, timestamp=ts)
     db.session.add(notification)
     db.session.commit()
+
+    mqtt.publish(group_id, group.name, message, ts)
+
     return jsonify(notification.to_dict()), 201

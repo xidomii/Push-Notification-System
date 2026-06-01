@@ -3,6 +3,7 @@ from flask_cors import CORS
 from models import db
 from routes.admin import admin_bp
 from routes.api import api_bp
+import mqtt
 import os
 
 
@@ -26,6 +27,8 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+
+    mqtt.connect(app)
 
     return app
 

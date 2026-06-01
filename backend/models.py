@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime, timezone, timedelta
 
 db = SQLAlchemy()
 
@@ -17,11 +18,19 @@ class Device(db.Model):
     last_seen = db.Column(db.String(30), nullable=True)
 
     def to_dict(self):
+        status = "offline"
+        if self.last_seen:
+            try:
+                ls = datetime.fromisoformat(self.last_seen.replace("Z", "+00:00"))
+                if (datetime.now(timezone.utc) - ls) < timedelta(seconds=60):
+                    status = "online"
+            except Exception:
+                status = self.status or "offline"
         return {
             "id":        self.id,
             "name":      self.name,
             "mac":       self.mac,
-            "status":    self.status,
+            "status":    status,
             "last_seen": self.last_seen,
         }
 

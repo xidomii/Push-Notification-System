@@ -1,18 +1,29 @@
 import paho.mqtt.client as mqtt
 import json
-import sys
+import time
+import threading
 from datetime import datetime
 
-BROKER = "192.168.X.X"   # <-- IP des Broker-Laptops hier eintragen
+BROKER = "192.168.X.X"   # <-- IP des Broker-Laptops eintragen
 PORT   = 1883
-TOPIC  = "smartserve/#"
+MAC    = "AA:BB:CC:DD:EE:FF"  # <-- eigene MAC-Adresse eintragen
+HEARTBEAT_INTERVAL = 30  # Sekunden
+
+
+def send_heartbeat(client):
+    while True:
+        payload = json.dumps({"mac": MAC})
+        client.publish("smartserve/heartbeat", payload, qos=1)
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] Heartbeat gesendet ({MAC})")
+        time.sleep(HEARTBEAT_INTERVAL)
 
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print(f"[MQTT] Verbunden mit {BROKER}:{PORT}")
-        print(f"[MQTT] Lausche auf: {TOPIC}\n")
-        client.subscribe(TOPIC)
+        client.subscribe("smartserve/#")
+        t = threading.Thread(target=send_heartbeat, args=(client,), daemon=True)
+        t.start()
     else:
         codes = {
             1: "Falsche Protokollversion",
@@ -22,23 +33,22 @@ def on_connect(client, userdata, flags, rc):
             5: "Nicht autorisiert",
         }
         print(f"[FEHLER] Verbindung abgelehnt: {codes.get(rc, f'rc={rc}')}")
-        sys.exit(1)
 
 
 def on_disconnect(client, userdata, rc):
     if rc != 0:
         print("[MQTT] Unerwartete Trennung.")
-    else:
-        print("[MQTT] Getrennt.")
 
 
 def on_message(client, userdata, msg):
+    if msg.topic == "smartserve/heartbeat":
+        return
     timestamp = datetime.now().strftime("%H:%M:%S")
     try:
         data  = json.loads(msg.payload.decode())
         group = data.get("group_name", "?")
         text  = data.get("message", "")
-        print(f"[{timestamp}] Gruppe '{group}': {text}")
+        print(f"[{timestamp}] Nachricht von Gruppe '{group}': {text}")
     except Exception:
         print(f"[{timestamp}] {msg.topic}: {msg.payload.decode()}")
 
@@ -49,19 +59,8 @@ client.on_disconnect = on_disconnect
 client.on_message    = on_message
 
 print(f"[MQTT] Verbinde mit {BROKER}:{PORT} ...")
-
 try:
     client.connect(BROKER, PORT, keepalive=60)
-except Exception as e:
-    print(f"[FEHLER] Broker nicht erreichbar: {e}")
-    print("Tipps:")
-    print("  - Broker-IP korrekt in BROKER eingetragen?")
-    print("  - Beide im selben Netz (Hotspot)?")
-    print("  - Mosquitto läuft auf dem Broker-Laptop?")
-    print("  - Port 1883 durch Firewall geblockt?")
-    sys.exit(1)
-
-try:
     client.loop_forever()
 except KeyboardInterrupt:
     client.disconnect()
