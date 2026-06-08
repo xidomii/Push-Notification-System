@@ -36,19 +36,43 @@ class Device(db.Model):
 
 
 class Notification(db.Model):
-    id        = db.Column(db.Integer, primary_key=True)
-    message   = db.Column(db.String(500), nullable=False)
-    timestamp = db.Column(db.String(30), nullable=False)
-    group_id  = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=False)
-    group     = db.relationship("Group", backref="notifications")
+    id          = db.Column(db.Integer, primary_key=True)
+    message     = db.Column(db.String(500), nullable=False)
+    timestamp   = db.Column(db.String(30), nullable=False)
+    group_id    = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=False)
+    group       = db.relationship("Group", backref="notifications")
+    acks        = db.relationship("NotificationAck", backref="notification", cascade="all, delete-orphan")
+    # "unassigned" | "ongoing" | "done"
+    task_status = db.Column(db.String(12), nullable=False, default="unassigned")
+
+    def to_dict(self):
+        accepted = next((a for a in self.acks if a.action == "accept"), None)
+        return {
+            "id":           self.id,
+            "message":      self.message,
+            "timestamp":    self.timestamp,
+            "group_id":     self.group_id,
+            "group_name":   self.group.name if self.group else None,
+            "task_status":  self.task_status,
+            "ack_by_mac":   accepted.mac if accepted else None,
+        }
+
+
+class NotificationAck(db.Model):
+    id              = db.Column(db.Integer, primary_key=True)
+    notification_id = db.Column(db.Integer, db.ForeignKey("notification.id"), nullable=False)
+    mac             = db.Column(db.String(17), nullable=False)
+    # "accept" | "decline" | "done"
+    action          = db.Column(db.String(10), nullable=False)
+    timestamp       = db.Column(db.String(30), nullable=False)
 
     def to_dict(self):
         return {
-            "id":         self.id,
-            "message":    self.message,
-            "timestamp":  self.timestamp,
-            "group_id":   self.group_id,
-            "group_name": self.group.name if self.group else None,
+            "id":              self.id,
+            "notification_id": self.notification_id,
+            "mac":             self.mac,
+            "action":          self.action,
+            "timestamp":       self.timestamp,
         }
 
 

@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from datetime import datetime, timezone
-from models import db, Device, Group, Notification
+from models import db, Device, Group, Notification, NotificationAck
 import mqtt
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -142,6 +142,40 @@ def add_notification():
     db.session.add(notification)
     db.session.commit()
 
-    mqtt.publish(group_id, group.name, message, ts)
+    mqtt.publish(notification.id, group_id, group.name, message, ts)
 
     return jsonify(notification.to_dict()), 201
+
+
+# ── Notification Acks ─────────────────────────────────────────────────────────
+
+@api_bp.route("/notifications/<int:notification_id>/ack", methods=["POST"])
+def ack_notification(notification_id):
+    """REST fallback — clients can also ack via MQTT directly."""
+    from models import NotificationAck
+    body   = request.get_json(force=True)
+    mac    = (body.get("mac") or "").strip().upper()
+    action = (body.get("action") or "").strip().lower()
+
+    if action not in ("accept", "decline") or not mac:
+        return jsonify({"error": "mac und action ('accept'|'decline') erforderlich"}), 400
+
+    notification = Notification.query.get(notification_id)
+    if not notification:
+        return jsonify({"error": "Notification nicht gefunden"}), 404
+
+    existing_accept = NotificationAck.query.filter_by(
+        notification_id=notification_id, action="accept"
+    ).first()
+    if existing_accept and action == "accept" and existing_accept.mac != mac:
+        return jsonify({"error": "already_accepted", "by_mac": existing_accept.mac}), 409
+
+    ack = NotificationAck.query.filter_by(notification_id=notification_id, mac=mac).first()
+    ts  = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if not ack:
+        ack = NotificationAck(notification_id=notification_id, mac=mac, action=action, timestamp=ts)
+        db.session.add(ack)
+    else:
+        ack.action, ack.timestamp = action, ts
+    db.session.commit()
+    return jsonify(ack.to_dict()), 200
