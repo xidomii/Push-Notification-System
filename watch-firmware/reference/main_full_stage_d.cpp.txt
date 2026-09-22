@@ -1,0 +1,234 @@
+// ============================================================
+//  SmartServe — Smartwatch Client Firmware
+//  ESP32-S3 SuperMini + GC9A01 240x240 round TFT
+//
+//  Stufe a-c: WLAN + MQTT-Empfang (Task-Workflow) + Anzeige + Heartbeat + Ack.
+//  Stufe d (spaeter): LVGL-GUI ersetzt das direkte TFT-Zeichnen hier.
+//
+//  Contract (siehe backend/mqtt.py):
+//    Empfang  smartserve/groups/{GROUP_ID}   type=task | task_status
+//    Empfang  smartserve/device/{MAC}        direktes Feedback
+//    Sende    smartserve/heartbeat           {mac}                 alle 30s
+//    Sende    smartserve/ack/{notification_id} {mac, action}       accept|decline|done
+// ============================================================
+
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <TFT_eSPI.h>
+#include "config.h"
+
+// --- Buttons (GPIO am fertigen Watch-Board anpassen, mit Matteo abstimmen) ---
+#define BTN_ACCEPT  1    // akzeptieren
+#define BTN_DECLINE 2    // ablehnen
+#define BTN_DONE    3    // erledigt
+#define BTN_ACTIVE_LOW true   // Button gegen GND -> INPUT_PULLUP
+
+TFT_eSPI tft = TFT_eSPI();
+WiFiClient   net;
+PubSubClient mqtt(net);
+
+String    g_mac;                    // "AA:BB:CC:DD:EE:FF" (WiFi.macAddress())
+String    subGroup, subDevice;      // Subscribe-Topics
+
+// --- aktuelle Aufgabe ---
+long   curTaskId = -1;
+String curGroup  = "";
+String curMsg    = "";
+String curStatus = "unassigned";    // unassigned|ongoing|done|declined
+String curInfo   = "";              // letzte Feedback-Zeile
+
+unsigned long lastHeartbeat = 0;
+
+// ---------------------------------------------------------------- Anzeige
+void render() {
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(MC_DATUM);
+
+  // Statuszeile oben
+  tft.setTextColor(mqtt.connected() ? TFT_GREEN : TFT_RED, TFT_BLACK);
+  tft.drawString(mqtt.connected() ? "verbunden" : "offline", 120, 24, 2);
+
+  if (curTaskId < 0) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.drawString("Warte auf", 120, 110, 4);
+    tft.drawString("Aufgaben...", 120, 140, 4);
+    return;
+  }
+
+  // Gruppe
+  tft.setTextColor(TFT_CYAN, TFT_BLACK);
+  tft.drawString(curGroup, 120, 60, 2);
+
+  // Nachricht (einfacher Umbruch; LVGL macht das spaeter sauber)
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString(curMsg.substring(0, 18), 120, 108, 4);
+  if (curMsg.length() > 18)
+    tft.drawString(curMsg.substring(18, 36), 120, 138, 4);
+
+  // Status
+  uint16_t sc = curStatus == "ongoing" ? TFT_ORANGE
+              : curStatus == "done"    ? TFT_GREEN
+              : curStatus == "declined"? TFT_RED : TFT_YELLOW;
+  tft.setTextColor(sc, TFT_BLACK);
+  tft.drawString(curStatus, 120, 178, 2);
+
+  if (curInfo.length()) {
+    tft.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    tft.drawString(curInfo.substring(0, 22), 120, 206, 2);
+  }
+}
+
+// ---------------------------------------------------------------- MQTT senden
+void sendHeartbeat() {
+  StaticJsonDocument<64> d;
+  d["mac"] = g_mac;
+  char buf[64];
+  size_t n = serializeJson(d, buf);
+  mqtt.publish("smartserve/heartbeat", (const uint8_t*)buf, n, false);
+}
+
+void sendAck(const char* action) {
+  if (curTaskId < 0) return;
+  StaticJsonDocument<96> d;
+  d["mac"]    = g_mac;
+  d["action"] = action;
+  char buf[96];
+  size_t n = serializeJson(d, buf);
+  String topic = "smartserve/ack/" + String(curTaskId);
+  mqtt.publish(topic.c_str(), (const uint8_t*)buf, n, true);
+  Serial.printf("[ACK] #%ld %s\n", curTaskId, action);
+}
+
+// ---------------------------------------------------------------- MQTT empfangen
+void onMessage(char* topic, byte* payload, unsigned int len) {
+  StaticJsonDocument<512> d;
+  if (deserializeJson(d, payload, len)) return;   // kein JSON -> ignorieren
+
+  const char* type = d["type"] | "";
+  long nid         = d["notification_id"] | -1;
+
+  if (strcmp(type, "task") == 0) {
+    // neue Aufgabe
+    curTaskId = nid;
+    curGroup  = String((const char*)(d["group_name"] | "?"));
+    curMsg    = String((const char*)(d["message"]    | ""));
+    curStatus = String((const char*)(d["task_status"]| "unassigned"));
+    curInfo   = "a=an  d=ab";
+    Serial.printf("[TASK] #%ld [%s] %s\n", nid, curGroup.c_str(), curMsg.c_str());
+    render();
+  }
+  else if (strcmp(type, "task_status") == 0) {
+    const char* status  = d["status"]      | "";
+    const char* tstatus = d["task_status"] | "";
+    const char* byName  = d["by_name"]     | "";
+    const char* byMac   = d["by_mac"]      | "";
+    bool mine = g_mac.equalsIgnoreCase(byMac);
+
+    if (nid == curTaskId) curStatus = String(tstatus);
+
+    // Feedback-Text
+    if      (!strcmp(status, "accepted"))          curInfo = mine ? "von dir uebernommen" : (String("von ")+byName).c_str();
+    else if (!strcmp(status, "declined"))          curInfo = mine ? "abgelehnt" : (String(byName)+" lehnte ab").c_str();
+    else if (!strcmp(status, "done"))              curInfo = "erledigt";
+    else if (!strcmp(status, "already_yours"))     curInfo = "schon deine Aufgabe";
+    else if (!strcmp(status, "accepted_by_other")) { curInfo = String(byName)+" war schneller"; if(nid==curTaskId) curTaskId=-1; }
+    else if (!strcmp(status, "decline_blocked"))   curInfo = "schon akzeptiert";
+    else if (!strcmp(status, "done_not_yours"))    curInfo = "nicht deine Aufgabe";
+
+    Serial.printf("[STATUS] #%ld %s (%s)\n", nid, status, tstatus);
+    render();
+  }
+}
+
+// ---------------------------------------------------------------- Verbindungen
+void ensureWifi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+  Serial.printf("[WiFi] verbinde mit %s ...\n", WIFI_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  g_mac = WiFi.macAddress();           // "AA:BB:CC:DD:EE:FF" (uppercase, colon)
+  subGroup  = "smartserve/groups/" + String(GROUP_ID);
+  subDevice = "smartserve/device/" + g_mac;
+  Serial.printf("\n[WiFi] verbunden. IP=%s MAC=%s\n", WiFi.localIP().toString().c_str(), g_mac.c_str());
+}
+
+void ensureMqtt() {
+  if (mqtt.connected()) return;
+  while (!mqtt.connected()) {
+    Serial.printf("[MQTT] verbinde mit %s:%d ...\n", MQTT_HOST, MQTT_PORT);
+    String cid = "watch-" + g_mac;
+    if (mqtt.connect(cid.c_str())) {
+      mqtt.subscribe(subGroup.c_str(),  1);
+      mqtt.subscribe(subDevice.c_str(), 1);
+      Serial.printf("[MQTT] verbunden. sub: %s | %s\n", subGroup.c_str(), subDevice.c_str());
+      sendHeartbeat();
+      render();
+    } else {
+      Serial.printf("[MQTT] fehlgeschlagen rc=%d, retry\n", mqtt.state());
+      delay(MQTT_RETRY_MS);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- Buttons
+int  btnPin[3]  = { BTN_ACCEPT, BTN_DECLINE, BTN_DONE };
+bool btnPrev[3] = { false, false, false };
+
+void setupButtons() {
+  for (int i = 0; i < 3; i++)
+    pinMode(btnPin[i], BTN_ACTIVE_LOW ? INPUT_PULLUP : INPUT);
+}
+
+bool pressed(int pin) {
+  int v = digitalRead(pin);
+  return BTN_ACTIVE_LOW ? (v == LOW) : (v == HIGH);
+}
+
+void pollButtons() {
+  const char* actions[3] = { "accept", "decline", "done" };
+  for (int i = 0; i < 3; i++) {
+    bool now = pressed(btnPin[i]);
+    if (now && !btnPrev[i]) sendAck(actions[i]);   // Flanke
+    btnPrev[i] = now;
+  }
+}
+
+// ---------------------------------------------------------------- Arduino
+void setup() {
+  Serial.begin(115200);
+  delay(200);
+
+  tft.init();
+  tft.setRotation(0);
+  tft.fillScreen(TFT_BLACK);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.drawString("SmartServe", 120, 120, 4);
+
+  setupButtons();
+
+  ensureWifi();
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(onMessage);
+  mqtt.setBufferSize(512);
+  ensureMqtt();
+}
+
+void loop() {
+  ensureWifi();
+  ensureMqtt();
+  mqtt.loop();
+  pollButtons();
+
+  if (millis() - lastHeartbeat >= HEARTBEAT_INTERVAL_MS) {
+    lastHeartbeat = millis();
+    sendHeartbeat();
+  }
+
+  delay(20);   // Button-Entprellung grob
+}

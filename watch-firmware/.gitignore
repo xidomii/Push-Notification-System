@@ -1,0 +1,6 @@
+.pio/
+.vscode/
+compile_commands.json
+# config.h enthaelt WLAN-Zugangsdaten -> nicht committen.
+# Vorlage stattdessen als config.example.h pflegen.
+src/config.h
