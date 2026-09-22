@@ -53,9 +53,8 @@ mosquitto_pub -h smartserve.local -t smartserve/groups/1 -m '{"type":"task","not
 | MS4 | 21.02.2027 | Integration Hardware + Gesamttest (Ack-Buttons) | offen |
 | MS5 | 18.03.2027 | Fehlerbehebung + Doku | offen |
 
-Die weiter fortgeschrittene Implementierung (Display, Heartbeat, Ack) liegt bereits
-als Referenz in `reference/main_full_stage_d.cpp.txt` — wird ab MS2 schrittweise
-in `src/` überführt. Für MS1 bewusst NICHT aktiv.
+Display (MS2), Heartbeat (MS3) und Ack/HW-Integration (MS4) folgen ab dem jeweiligen
+Meilenstein und sind hier bewusst noch nicht umgesetzt.
 
 ## Status
 MS1-Code vollständig, **noch nicht auf Hardware getestet** (Board/Display ausständig).
