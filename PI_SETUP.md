@@ -24,6 +24,31 @@ das **Flask-Backend** (Server-Appliance). Der Laptop ist nur noch Admin-Browser.
 > MQTT-Clients (`mqtt.connect()` läuft je Prozess) → doppelte Heartbeat-/Ack-Verarbeitung
 > + SQLite-Locks.
 
+## 0) SD/SSD flashen mit Raspberry Pi Imager (headless + SSH)
+
+OS = **Raspberry Pi OS Lite (64-bit)**. Vor dem Schreiben: **⚙ Zahnrad** (`Strg+Shift+X`)
+→ "OS-Einstellungen bearbeiten":
+
+**Reiter „Allgemein":**
+- Hostname: `smartserve` → erreichbar als `smartserve.local`
+- Benutzername + Passwort: z.B. `pi` + starkes Passwort (dieser User = `User=` im systemd-Service)
+- WLAN: SSID + Passwort + **Land: `AT`**
+- Ländereinstellungen: Zeitzone `Europe/Vienna`, Tastatur `de`
+
+**Reiter „Dienste":**
+- **SSH aktivieren** ✓ — Passwort-Auth (einfach) ODER nur Public-Key (sicherer, empfohlen)
+
+Key-Auth (empfohlen), Key am Laptop erzeugen falls nicht vorhanden:
+```bash
+ssh-keygen -t ed25519       # erzeugt ~/.ssh/id_ed25519(.pub)
+cat ~/.ssh/id_ed25519.pub   # Inhalt in den Imager (Public-Key-Feld) einfügen
+```
+
+Speichern → Schreiben. Nach Boot (1–2 min):
+```bash
+ssh pi@smartserve.local
+```
+
 ## Setup-Befehle (der Reihe nach, auf dem Pi)
 
 ```bash
