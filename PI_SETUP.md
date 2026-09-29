@@ -60,7 +60,10 @@ sudo apt install -y avahi-daemon
 # 2) Broker
 sudo apt install -y mosquitto mosquitto-clients
 echo -e "listener 1883\nallow_anonymous true" | sudo tee /etc/mosquitto/conf.d/smartserve.conf
-sudo systemctl enable --now mosquitto
+sudo systemctl enable mosquitto
+sudo systemctl restart mosquitto      # WICHTIG: restart, nicht nur enable --now!
+# Pruefen dass er auf allen Interfaces lauscht (0.0.0.0:1883, NICHT nur 127.0.0.1):
+ss -tlnp | grep 1883
 
 # 3) Backend holen
 sudo apt install -y python3-venv python3-pip git
@@ -118,11 +121,16 @@ sudo raspi-config nonint do_wifi_country AT
 # 2) AP-Profil anlegen
 sudo nmcli connection add type wifi ifname wlan0 con-name smartserve-ap autoconnect yes ssid SmartServe
 
-# 3) 2,4-GHz-AP (ESP kann nur 2,4 GHz) + eigenes Subnetz mit DHCP (Pi = 10.42.0.1)
-sudo nmcli connection modify smartserve-ap 802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared
+# 3) 2,4-GHz-AP (ESP kann nur 2,4 GHz), fester Kanal, eigenes Subnetz mit DHCP (Pi = 10.42.0.1)
+sudo nmcli connection modify smartserve-ap 802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 ipv4.method shared
 
-# 4) WLAN-Passwort (min. 8 Zeichen)
-sudo nmcli connection modify smartserve-ap wifi-sec.key-mgmt wpa-psk wifi-sec.psk "geheim1234"
+# 4) WLAN-Passwort + WPA2 erzwingen (WICHTIG: klassischer ESP32 kommt mit WPA1 oft nicht klar)
+sudo nmcli connection modify smartserve-ap \
+  802-11-wireless-security.key-mgmt wpa-psk \
+  802-11-wireless-security.proto rsn \
+  802-11-wireless-security.pairwise ccmp \
+  802-11-wireless-security.group ccmp \
+  802-11-wireless-security.psk "geheim1234"
 
 # 5) AP starten (SSH übers Heim-WLAN bricht jetzt ab)
 sudo nmcli connection up smartserve-ap

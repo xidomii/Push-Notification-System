@@ -1,17 +1,17 @@
 #pragma once
 
 // ============================================================
-//  SmartServe Watch — Konfiguration (Meilenstein 1)
-//  Diese Datei anpassen, NICHT committen (WLAN-Zugangsdaten).
+//  SmartServe Watch — Konfiguration (Vorlage)
+//  Nach config.h kopieren und ausfuellen. config.h ist gitignored.
 // ============================================================
 
-// --- WLAN ---
-#define WIFI_SSID       "DEIN_WLAN"
-#define WIFI_PASSWORD   "DEIN_PASSWORT"
+// --- WLAN (Pi-Access-Point) ---
+#define WIFI_SSID       "SmartServe"
+#define WIFI_PASSWORD   "DEIN_AP_PASSWORT"
 
-// --- MQTT Broker (Raspberry Pi) ---
-// Feste IP ODER mDNS-Hostname des Pi. mDNS bevorzugt (ueberlebt IP-Wechsel).
-#define MQTT_HOST       "smartserve.local"   // z.B. "192.168.1.50"
+// --- MQTT Broker (Raspberry Pi am AP = feste IP) ---
+// ESP kann kein mDNS -> feste IP statt smartserve.local verwenden.
+#define MQTT_HOST       "10.42.0.1"
 #define MQTT_PORT       1883
 
 // --- Gruppe, deren Nachrichten diese Watch empfaengt ---
