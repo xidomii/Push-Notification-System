@@ -41,12 +41,26 @@ SmartServe-Backend über MQTT und zeigt sie am Display an.
    `MQTT_HOST` = feste Pi-IP `10.42.0.1` (ESP kann kein mDNS), `GROUP_ID`.
 3. Display gemäß Tabelle verdrahten. Pins stehen in `platformio.ini`.
 
+## Build-Umgebungen
+| Env | Zweck | Datei |
+|---|---|---|
+| `esp32dev` | MS2-Firmware, direktes Zeichnen (TFT_eSPI) | `src/main.cpp` |
+| `esp32dev-lvgl` | LVGL-GUI-Gerüst (Design-Umsetzung) | `src/main_lvgl.cpp` |
+
 ## Build / Flash / Test
 ```bash
-pio run                        # kompilieren
-pio run -t upload              # flashen
-pio device monitor -b 115200   # serielle Ausgabe
+pio run -e esp32dev                 # MS2-Firmware kompilieren
+pio run -e esp32dev -t upload       # flashen
+pio device monitor -b 115200        # serielle Ausgabe
+# LVGL-GUI:  pio run -e esp32dev-lvgl [-t upload]
 ```
+
+## Watch-GUI
+- **Design-Referenz / Emulator:** `gui-emulator/index.html` (im Browser öffnen) —
+  zeigt die eingefrorene GUI (Watchface / Aufgabe / Liste) auf einem 240×240-Kreis.
+- **Umsetzung:** LVGL (`esp32dev-lvgl`, `src/main_lvgl.cpp`, Config `include/lv_conf.h`).
+  Aktuell Gerüst (LVGL an GC9A01 gebunden, MQTT → Label). Die vollen Screens werden
+  gebaut, sobald das Display zum visuellen Prüfen da ist.
 Testnachricht vom Pi senden:
 ```bash
 mosquitto_pub -h localhost -t smartserve/groups/1 -m '{"type":"task","group_name":"Kueche","message":"Hallo Watch"}'
