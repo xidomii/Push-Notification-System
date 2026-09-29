@@ -101,6 +101,42 @@ sudo systemctl enable --now smartserve
 sudo systemctl status smartserve
 ```
 
+## Pi als WLAN-Access-Point (empfohlen fürs finale Setup)
+
+Der Pi spannt sein eigenes WLAN auf; Watch + Admin-Laptop treten bei. Kein externer
+Router, unabhängig vom Schul-/Heimnetz — passt zur "lokales System"-Idee. Bei RPi OS
+Lite (Bookworm) via NetworkManager (`nmcli`), kein hostapd/dnsmasq nötig.
+
+> **Achtung:** Sobald der AP aktiv ist, wird `wlan0` zum Access Point → eine bestehende
+> SSH-Verbindung übers Heim-WLAN bricht ab. Danach ins Pi-WLAN "SmartServe" verbinden und
+> `ssh pi@10.42.0.1` (oder `ssh pi@smartserve.local`). Am besten per Ethernet einrichten.
+
+```bash
+# 1) WLAN-Land setzen (Regulierung, sonst kein AP)
+sudo raspi-config nonint do_wifi_country AT
+
+# 2) AP-Profil anlegen
+sudo nmcli connection add type wifi ifname wlan0 con-name smartserve-ap autoconnect yes ssid SmartServe
+
+# 3) 2,4-GHz-AP (ESP kann nur 2,4 GHz) + eigenes Subnetz mit DHCP (Pi = 10.42.0.1)
+sudo nmcli connection modify smartserve-ap 802-11-wireless.mode ap 802-11-wireless.band bg ipv4.method shared
+
+# 4) WLAN-Passwort (min. 8 Zeichen)
+sudo nmcli connection modify smartserve-ap wifi-sec.key-mgmt wpa-psk wifi-sec.psk "geheim1234"
+
+# 5) AP starten (SSH übers Heim-WLAN bricht jetzt ab)
+sudo nmcli connection up smartserve-ap
+
+# 6) Neu verbinden: Client ins WLAN "SmartServe", dann
+ssh pi@10.42.0.1
+
+# 7) Prüfen
+nmcli connection show --active
+```
+
+ESP `config.h` `MQTT_HOST` bleibt `smartserve.local` (avahi läuft auch im AP-Netz).
+Broker + Backend laufen am Pi auf `localhost` → vom AP unberührt.
+
 ## Verifikation
 ```bash
 mosquitto_sub -h localhost -t 'smartserve/#' -v
