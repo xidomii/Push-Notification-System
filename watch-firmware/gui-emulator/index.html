@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SmartServe · Watch GUI Emulator (240×240 GC9A01)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#08090b; --bg2:#0e0f11; --panel:#14161a; --panel2:#1a1d23;
+    --border:#272b35; --line:#2f3440;
+    --pri:#e8eaf0; --sec:#8a90a3; --muted:#4b5162;
+    --accent:#3d5afe; --accent-dim:#1a2350;
+    --cyan:#22d3ee; --green:#00e07a; --amber:#ffb020; --danger:#ff4d4f;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    --sans:'IBM Plex Sans',system-ui,sans-serif;
+    --D:240px; /* echte Displaygröße */
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans); color:var(--pri);
+    background:
+      radial-gradient(1200px 700px at 78% -10%, #14203f22, transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, #1a103522, transparent 55%),
+      var(--bg);
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    gap:56px; padding:48px; flex-wrap:wrap;
+    background-attachment:fixed;
+  }
+  /* faint grain */
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0; opacity:.035;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* ─────────────────────────── WATCH BODY ─────────────────────────── */
+  .rig{position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:22px}
+  .watch{position:relative; width:308px; height:308px; display:flex; align-items:center; justify-content:center}
+  /* Armband-Stummel */
+  .strap{position:absolute; left:50%; transform:translateX(-50%); width:120px; height:70px;
+    background:linear-gradient(180deg,#191b1f,#0c0d0f); border:1px solid #000; z-index:0}
+  .strap.top{top:-40px; border-radius:16px 16px 6px 6px; box-shadow:inset 0 6px 14px #0008}
+  .strap.bot{bottom:-40px; border-radius:6px 6px 16px 16px; box-shadow:inset 0 -6px 14px #0008}
+  /* Gehäuse */
+  .case{position:relative; width:290px; height:290px; border-radius:50%;
+    background:
+      radial-gradient(120px 120px at 34% 26%, #33373f, transparent 60%),
+      conic-gradient(from 210deg, #16181c, #23262c 20%, #101215 42%, #26292f 62%, #131519 82%, #1c1f24);
+    box-shadow:
+      0 30px 60px -18px #000e, 0 6px 18px #000a,
+      inset 0 2px 3px #4a4f5a55, inset 0 -3px 8px #000c;
+    display:flex; align-items:center; justify-content:center; z-index:2}
+  /* Krone */
+  .crown{position:absolute; right:-9px; top:50%; transform:translateY(-50%);
+    width:16px; height:46px; border-radius:5px;
+    background:linear-gradient(90deg,#0c0d10,#3a3f49 40%,#202429 60%,#0b0c0e);
+    box-shadow:0 2px 6px #000a, inset 0 0 3px #5a616e; z-index:3}
+  .crown::after{content:""; position:absolute; inset:5px 3px; border-radius:3px;
+    background:repeating-linear-gradient(180deg,#0000 0 2px,#00000066 2px 4px)}
+  .btn2{position:absolute; right:-7px; top:34%; width:12px; height:26px; border-radius:4px;
+    background:linear-gradient(90deg,#0c0d10,#2c3037 50%,#0b0c0e); z-index:3}
+
+  /* Lünette + Glas */
+  .bezel{width:262px; height:262px; border-radius:50%; padding:11px;
+    background:radial-gradient(circle at 50% 34%, #0b0c0e, #050506);
+    box-shadow:inset 0 0 0 1px #000, inset 0 3px 10px #000, 0 0 0 1px #33383f22}
+  .screen{position:relative; width:240px; height:240px; border-radius:50%;
+    overflow:hidden; background:#000;
+    box-shadow:inset 0 0 24px #000, inset 0 0 2px #000;}
+  /* Status-Ring am Rand */
+  .ring{position:absolute; inset:0; z-index:5; pointer-events:none}
+  .ring circle{fill:none; stroke-width:3}
+  .ring .track{stroke:#ffffff0c}
+  .ring .prog{stroke:var(--accent); stroke-linecap:round;
+    filter:drop-shadow(0 0 4px var(--accent)); transition:stroke-dashoffset .6s ease, stroke .4s}
+  /* Glas-Reflex */
+  .glass{position:absolute; inset:0; z-index:9; pointer-events:none; border-radius:50%;
+    background:
+      radial-gradient(150px 120px at 32% 20%, #ffffff12, transparent 60%),
+      radial-gradient(120px 200px at 88% 92%, #00000055, transparent 60%)}
+  .vign{position:absolute; inset:0; z-index:8; pointer-events:none; border-radius:50%;
+    box-shadow:inset 0 0 34px #000a}
+
+  /* ─────────────────────────── SCREENS ─────────────────────────── */
+  .view{position:absolute; inset:0; z-index:6; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:30px 26px}
+  .view.on{display:flex; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0} to{opacity:1}}
+  .safe{width:186px; display:flex; flex-direction:column; align-items:center; gap:2px}
+
+  /* Watchface */
+  .wf-status{position:absolute; top:26px; left:50%; transform:translateX(-50%);
+    display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:10px;
+    letter-spacing:.14em; color:var(--sec); text-transform:uppercase}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--green);
+    box-shadow:0 0 7px var(--green)}
+  .dot.off{background:var(--danger); box-shadow:0 0 7px var(--danger)}
+  .wf-time{font-family:var(--mono); font-weight:600; font-size:58px; line-height:1;
+    letter-spacing:.02em; color:var(--pri); text-shadow:0 0 18px #3d5afe33}
+  .wf-time .sec{font-size:20px; color:var(--accent); vertical-align:super; margin-left:3px}
+  .wf-date{font-family:var(--mono); font-size:12px; letter-spacing:.22em; color:var(--sec);
+    text-transform:uppercase; margin-top:8px}
+  .wf-brand{position:absolute; bottom:30px; left:50%; transform:translateX(-50%);
+    font-family:var(--mono); font-size:10px; letter-spacing:.32em; color:var(--muted)}
+  .wf-brand b{color:var(--sec); font-weight:600}
+
+  /* Task */
+  .t-chip{display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
+    font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--cyan);
+    padding:4px 12px; border:1px solid #22d3ee44; border-radius:20px; background:#22d3ee11;
+    margin-bottom:12px}
+  .t-chip .d{width:6px; height:6px; border-radius:50%; background:var(--cyan);
+    box-shadow:0 0 6px var(--cyan)}
+  .t-msg{font-family:var(--sans); font-weight:500; font-size:21px; line-height:1.25;
+    color:var(--pri); max-height:80px; overflow:hidden}
+  .t-time{font-family:var(--mono); font-size:10px; letter-spacing:.14em; color:var(--muted);
+    margin-top:10px}
+  .t-actions{position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    display:flex; gap:12px}
+  .act{width:56px; height:40px; border-radius:14px; border:1px solid var(--line);
+    background:var(--panel); color:var(--pri); font-family:var(--mono); font-size:17px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:transform .12s, box-shadow .2s, background .2s}
+  .act:hover{transform:translateY(-2px)}
+  .act:active{transform:translateY(0)}
+  .act.ok{border-color:#00e07a55; color:var(--green); background:#00e07a12}
+  .act.ok:hover{box-shadow:0 0 16px #00e07a44}
+  .act.no{border-color:#ff4d4f55; color:var(--danger); background:#ff4d4f12}
+  .act.no:hover{box-shadow:0 0 16px #ff4d4f44}
+  .act.wide{width:132px; font-family:var(--sans); font-size:13px; gap:7px; font-weight:500}
+
+  /* Status badge (ongoing/done) */
+  .t-state{font-family:var(--mono); font-size:11px; letter-spacing:.2em; text-transform:uppercase;
+    padding:3px 10px; border-radius:12px; margin-top:14px}
+  .t-state.ong{color:var(--amber); border:1px solid #ffb02055; background:#ffb02011}
+  .t-state.done{color:var(--green); border:1px solid #00e07a55; background:#00e07a11}
+
+  /* Done splash */
+  .done-mark{width:74px; height:74px; border-radius:50%; border:2px solid var(--green);
+    display:flex; align-items:center; justify-content:center; color:var(--green);
+    font-size:38px; box-shadow:0 0 26px #00e07a44; margin-bottom:16px;
+    animation:pop .4s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(.4); opacity:0} to{transform:scale(1); opacity:1}}
+
+  /* Liste */
+  .l-head{position:absolute; top:30px; left:0; right:0; text-align:center;
+    font-family:var(--mono); font-size:11px; letter-spacing:.24em; text-transform:uppercase;
+    color:var(--sec)}
+  .l-wrap{width:200px; max-height:150px; overflow-y:auto; display:flex; flex-direction:column;
+    gap:8px; margin-top:8px; scrollbar-width:none}
+  .l-wrap::-webkit-scrollbar{display:none}
+  .l-row{display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:12px;
+    background:var(--panel); border:1px solid var(--border); text-align:left}
+  .l-row .ld{width:6px; height:6px; border-radius:50%; flex:0 0 auto}
+  .l-row .lg{font-family:var(--mono); font-size:9px; letter-spacing:.1em; color:var(--cyan);
+    text-transform:uppercase}
+  .l-row .lm{font-size:12px; color:var(--pri); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; max-width:120px}
+  .l-row .lt{margin-left:auto; font-family:var(--mono); font-size:9px; color:var(--muted)}
+
+  /* boot */
+  .boot{gap:14px}
+  .boot .bl{font-family:var(--mono); font-size:13px; letter-spacing:.28em; color:var(--sec);
+    text-transform:uppercase}
+  .boot .bd{width:8px;height:8px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 10px var(--accent); animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+
+  /* vibrate */
+  @keyframes buzz{10%,30%,50%,70%{transform:translateX(-2px)}20%,40%,60%,80%{transform:translateX(2px)}}
+  .buzz{animation:buzz .5s}
+
+  .caption{font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--muted);
+    text-transform:uppercase}
+  .caption b{color:var(--sec); font-weight:600}
+
+  /* ─────────────────────────── CONSOLE ─────────────────────────── */
+  .console{position:relative; z-index:1; width:340px; background:linear-gradient(180deg,var(--panel),#101216);
+    border:1px solid var(--border); border-radius:16px; padding:22px;
+    box-shadow:0 24px 60px -24px #000c}
+  .c-title{font-family:var(--mono); font-size:12px; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--sec); display:flex; align-items:center; gap:9px; margin-bottom:4px}
+  .c-title .k{width:8px;height:8px;border-radius:2px;background:var(--accent);
+    box-shadow:0 0 8px var(--accent)}
+  .c-sub{font-size:12px; color:var(--muted); margin-bottom:18px; line-height:1.4}
+  .grp{margin-bottom:16px}
+  .grp>label{font-family:var(--mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--sec); display:block; margin-bottom:7px}
+  .seg{display:flex; gap:6px; background:#0c0d10; padding:5px; border-radius:11px; border:1px solid var(--border)}
+  .seg button{flex:1; padding:8px 4px; border:0; border-radius:7px; background:transparent;
+    color:var(--sec); font-family:var(--mono); font-size:11px; letter-spacing:.08em; cursor:pointer;
+    text-transform:uppercase; transition:.18s}
+  .seg button.sel{background:var(--accent); color:#fff; box-shadow:0 4px 14px #3d5afe55}
+  input.f,textarea.f{width:100%; background:#0c0d10; border:1px solid var(--border); border-radius:9px;
+    color:var(--pri); font-family:var(--sans); font-size:13px; padding:10px 12px; outline:none;
+    transition:border-color .2s, box-shadow .2s; resize:none}
+  input.f:focus,textarea.f:focus{border-color:var(--accent); box-shadow:0 0 0 3px #3d5afe22}
+  .row2{display:flex; gap:9px}
+  .send{width:100%; margin-top:12px; padding:12px; border:0; border-radius:10px; cursor:pointer;
+    font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:#fff; background:linear-gradient(180deg,#4c66ff,#2f49e6); box-shadow:0 8px 22px -6px #3d5afe88;
+    transition:transform .12s, box-shadow .2s}
+  .send:hover{transform:translateY(-1px); box-shadow:0 12px 28px -6px #3d5afeaa}
+  .send:active{transform:translateY(0)}
+  .hint{font-family:var(--mono); font-size:10px; color:var(--muted); line-height:1.6; margin-top:16px;
+    border-top:1px solid var(--border); padding-top:14px; letter-spacing:.04em}
+  .hint b{color:var(--sec)}
+  .toolbar{display:flex; gap:8px; margin-top:12px}
+  .toolbar button{flex:1; padding:9px; border:1px solid var(--border); border-radius:9px;
+    background:var(--panel2); color:var(--sec); font-family:var(--mono); font-size:10px;
+    letter-spacing:.1em; text-transform:uppercase; cursor:pointer; transition:.18s}
+  .toolbar button:hover{color:var(--pri); border-color:var(--line)}
+  h1.big{position:fixed; top:26px; left:32px; z-index:2; font-family:var(--mono); font-weight:600;
+    font-size:13px; letter-spacing:.24em; text-transform:uppercase; color:var(--sec)}
+  h1.big b{color:var(--pri)}
+  h1.big span{color:var(--muted); font-weight:400; display:block; margin-top:4px; font-size:10px; letter-spacing:.12em}
+</style>
+</head>
+<body>
+  <h1 class="big">SMART<b>SERVE</b> · WATCH GUI<span>240×240 · GC9A01 · Emulator</span></h1>
+
+  <!-- ───────── WATCH ───────── -->
+  <div class="rig">
+    <div class="watch">
+      <div class="strap top"></div>
+      <div class="strap bot"></div>
+      <div class="case">
+        <div class="crown"></div><div class="btn2"></div>
+        <div class="bezel">
+          <div class="screen" id="screen">
+
+            <svg class="ring" viewBox="0 0 240 240">
+              <circle class="track" cx="120" cy="120" r="116"/>
+              <circle class="prog"  cx="120" cy="120" r="116" id="ring"
+                       transform="rotate(-90 120 120)"/>
+            </svg>
+
+            <!-- BOOT -->
+            <div class="view boot" data-v="boot">
+              <div class="bd"></div>
+              <div class="bl" id="bootTxt">SmartServe</div>
+            </div>
+
+            <!-- WATCHFACE -->
+            <div class="view" data-v="face">
+              <div class="wf-status"><span class="dot" id="connDot"></span><span id="connTxt">verbunden</span></div>
+              <div class="safe">
+                <div class="wf-time" id="clk">09:41</div>
+                <div class="wf-date" id="date">MO · 29.09</div>
+              </div>
+              <div class="wf-brand">SMART<b>SERVE</b></div>
+            </div>
+
+            <!-- TASK -->
+            <div class="view" data-v="task">
+              <div class="safe">
+                <div class="t-chip"><span class="d"></span><span id="tGroup">KÜCHE</span></div>
+                <div class="t-msg" id="tMsg">Tisch 3 bitte bedienen</div>
+                <div class="t-state ong" id="tState" style="display:none">übernommen</div>
+                <div class="t-time" id="tTime">14:32</div>
+              </div>
+              <div class="t-actions" id="tActions">
+                <button class="act no" onclick="decline()">✕</button>
+                <button class="act ok" onclick="accept()">✓</button>
+              </div>
+            </div>
+
+            <!-- DONE -->
+            <div class="view" data-v="done">
+              <div class="done-mark">✓</div>
+              <div class="caption"><b>Erledigt</b></div>
+            </div>
+
+            <!-- LISTE -->
+            <div class="view" data-v="list">
+              <div class="l-head">Aufgaben</div>
+              <div class="l-wrap" id="listWrap"></div>
+            </div>
+
+            <div class="vign"></div>
+            <div class="glass"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">1&nbsp;:&nbsp;1 &nbsp;·&nbsp; <b>240&nbsp;px</b> &nbsp;rund</div>
+  </div>
+
+  <!-- ───────── CONSOLE ───────── -->
+  <div class="console">
+    <div class="c-title"><span class="k"></span>Steuerpult</div>
+    <div class="c-sub">Screen wechseln oder eine Nachricht an die Watch schicken — so wie es das Backend über MQTT täte.</div>
+
+    <div class="grp">
+      <label>Screen</label>
+      <div class="seg" id="nav">
+        <button data-go="face" class="sel">Watchface</button>
+        <button data-go="task">Aufgabe</button>
+        <button data-go="list">Liste</button>
+      </div>
+    </div>
+
+    <div class="grp">
+      <label>Neue Nachricht senden</label>
+      <div class="row2" style="margin-bottom:9px">
+        <input class="f" id="inGroup" placeholder="Gruppe (z.B. Küche)" value="Küche" style="flex:1"/>
+      </div>
+      <textarea class="f" id="inMsg" rows="2" placeholder="Nachricht…">Tisch 3 bitte bedienen</textarea>
+      <button class="send" onclick="sendMsg()">▸ An Watch senden</button>
+    </div>
+
+    <div class="toolbar">
+      <button onclick="setConn(true)">● online</button>
+      <button onclick="setConn(false)">○ offline</button>
+      <button onclick="clearList()">Liste leeren</button>
+    </div>
+
+    <div class="hint">
+      <b>Design-Referenz für die Hardware.</b><br>
+      Diese Screens sind das Ziel für die LVGL-Umsetzung am ESP32 (GC9A01, 240×240).
+      Alles im inneren Kreis-Sicherbereich, Farben = SmartServe-Palette.
+    </div>
+  </div>
+
+<script>
+  const V = v => document.querySelector(`.view[data-v="${v}"]`);
+  const views = [...document.querySelectorAll('.view')];
+  const ringEl = document.getElementById('ring');
+  const R=116, C=2*Math.PI*R;
+  ringEl.style.strokeDasharray=C;
+
+  let state = { group:'Küche', msg:'Tisch 3 bitte bedienen', status:'neu', list:[] };
+
+  function show(v){
+    views.forEach(el=>el.classList.toggle('on', el.dataset.v===v));
+    // nav sync
+    document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('sel', b.dataset.go===v));
+    setRing(v);
+  }
+  function setRing(v){
+    let frac = v==='task'?0.72 : v==='list'?1 : v==='face'?0.33 : 0.1;
+    ringEl.style.strokeDashoffset = C*(1-frac);
+    ringEl.style.stroke = v==='task' ? 'var(--amber)' : v==='done' ? 'var(--green)' : 'var(--accent)';
+  }
+
+  // clock
+  const DAYS=['SO','MO','DI','MI','DO','FR','SA'];
+  function tick(){
+    const d=new Date();
+    const hh=String(d.getHours()).padStart(2,'0'), mm=String(d.getMinutes()).padStart(2,'0');
+    const ss=String(d.getSeconds()).padStart(2,'0');
+    document.getElementById('clk').innerHTML = `${hh}:${mm}<span class="sec">${ss}</span>`;
+    document.getElementById('date').textContent =
+      `${DAYS[d.getDay()]} · ${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`;
+  }
+  setInterval(tick,1000); tick();
+
+  function setConn(on){
+    document.getElementById('connDot').classList.toggle('off', !on);
+    document.getElementById('connTxt').textContent = on?'verbunden':'getrennt';
+  }
+
+  // send message -> task screen
+  function sendMsg(){
+    state.group = (document.getElementById('inGroup').value||'—').trim();
+    state.msg   = (document.getElementById('inMsg').value||'').trim();
+    state.status='neu';
+    const t=new Date(), tm=`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}`;
+    document.getElementById('tGroup').textContent = state.group.toUpperCase();
+    document.getElementById('tMsg').textContent = state.msg||'(leer)';
+    document.getElementById('tTime').textContent = tm;
+    document.getElementById('tState').style.display='none';
+    document.getElementById('tActions').style.display='flex';
+    // in Liste
+    state.list.unshift({g:state.group, m:state.msg, t:tm, s:'neu'});
+    renderList();
+    show('task');
+    buzz();
+  }
+  function buzz(){
+    const s=document.getElementById('screen');
+    s.classList.remove('buzz'); void s.offsetWidth; s.classList.add('buzz');
+  }
+
+  function accept(){
+    state.status='ongoing';
+    document.getElementById('tActions').style.display='none';
+    const st=document.getElementById('tState');
+    st.className='t-state ong'; st.textContent='übernommen'; st.style.display='inline-block';
+    if(state.list[0]) state.list[0].s='ongoing';
+    // Erledigt-Button
+    const act=document.getElementById('tActions');
+    act.innerHTML='<button class="act wide ok" onclick="done()">✓ Erledigt</button>';
+    act.style.display='flex';
+    setRing('task');
+  }
+  function decline(){
+    if(state.list[0]) state.list[0].s='declined';
+    renderList();
+    show('face');
+  }
+  function done(){
+    state.status='done';
+    if(state.list[0]) state.list[0].s='done';
+    renderList();
+    show('done');
+    setTimeout(()=>show('face'), 1600);
+    // actions zurücksetzen
+    document.getElementById('tActions').innerHTML=
+      '<button class="act no" onclick="decline()">✕</button><button class="act ok" onclick="accept()">✓</button>';
+    document.getElementById('tState').style.display='none';
+  }
+
+  const SC={neu:'var(--cyan)', ongoing:'var(--amber)', done:'var(--green)', declined:'var(--danger)'};
+  function renderList(){
+    const w=document.getElementById('listWrap');
+    if(!state.list.length){ w.innerHTML='<div class="caption" style="margin:20px auto">keine</div>'; return; }
+    w.innerHTML = state.list.slice(0,12).map(r=>`
+      <div class="l-row">
+        <span class="ld" style="background:${SC[r.s]};box-shadow:0 0 6px ${SC[r.s]}"></span>
+        <div><div class="lg">${esc(r.g)}</div><div class="lm">${esc(r.m||'—')}</div></div>
+        <span class="lt">${r.t}</span>
+      </div>`).join('');
+  }
+  function clearList(){ state.list=[]; renderList(); }
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>show(b.dataset.go));
+
+  // seed
+  state.list=[
+    {g:'Küche', m:'Tisch 3 bitte bedienen', t:'14:32', s:'neu'},
+    {g:'Bar',   m:'Nachschub Gläser',       t:'14:20', s:'done'},
+    {g:'Service',m:'Reservierung 18:00',    t:'13:55', s:'declined'},
+  ];
+  renderList(); setConn(true);
+
+  // boot -> face
+  const bt=document.getElementById('bootTxt');
+  show('boot');
+  const seq=['SmartServe','WLAN …','Broker …','Bereit'];
+  let i=0; const iv=setInterval(()=>{ i++; if(i<seq.length){bt.textContent=seq[i];} else {clearInterval(iv); show('face');} },520);
+</script>
+</body>
+</html>
