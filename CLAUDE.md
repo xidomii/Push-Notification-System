@@ -1,93 +1,66 @@
 # SmartServe — CLAUDE.md
 
 ## Projekt
-Push-Notification-Admin-System. Admin sendet Nachrichten über Web-UI an Gerätegruppen. Backend persistiert in SQLite, publiziert via MQTT an verbundene Geräte.
+Lokales Push-Benachrichtigungssystem. Admin sendet über Web-UI Nachrichten/Aufgaben an
+selbstgebaute Smartwatches (ESP32 + Display). Backend persistiert in SQLite, publiziert
+via MQTT. Aufgaben-Workflow: accept/decline/done. **Architektur-Landkarte:
+[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md). Pi-Setup: [PI_SETUP.md](PI_SETUP.md).**
+
+## Wo läuft was
+- **Raspberry Pi** = Server-Appliance: Mosquitto-Broker + Flask-Backend + SQLite + WLAN-AP „SmartServe" (Pi = `10.42.0.1`).
+- **ESP32 WROOM-32 + GC9A01** = Smartwatch (`watch-firmware/`).
+- **Browser** = Admin-Dashboard (`http://10.42.0.1:5000`).
 
 ## Stack
-- Backend: Python 3, Flask, Flask-SQLAlchemy, Flask-CORS, paho-mqtt
+- Backend: Python 3, Flask, Flask-SQLAlchemy, Flask-CORS, paho-mqtt 2.x
 - DB: SQLite (`backend/smartserve.db`, gitignored)
-- Frontend: Vanilla HTML/CSS/JS, IBM Plex Mono/Sans, kein Bootstrap, kein Framework
-- Broker: Mosquitto (lokal auf diesem Laptop)
+- Frontend: Vanilla HTML/CSS/JS, IBM Plex, kein Framework
+- Watch: Arduino/PlatformIO, TFT_eSPI (GC9A01), PubSubClient, ArduinoJson
+- Deployment: gunicorn (1 Worker!) + systemd am Pi
 
 ## Starten
-
-```bash
-# 1. MQTT Broker
-echo -e "listener 1883\nallow_anonymous true" > /tmp/mqtt.conf
-mosquitto -c /tmp/mqtt.conf -v
-
-# 2. Backend
-cd backend
-python app.py          # läuft auf http://localhost:5000
-```
+- **Produktiv (Pi):** siehe PI_SETUP.md (systemd-Service `smartserve.service`, `mosquitto`).
+- **Lokal (Dev):** `mosquitto -c /tmp/mqtt.conf -v` + `cd backend && python app.py` (:5000).
 
 ## Projektstruktur
 ```
-SmartServe/
-├── backend/
-│   ├── app.py          # App-Factory, DB-Init, MQTT connect on startup
-│   ├── models.py       # Device, Group, Notification (SQLAlchemy)
-│   ├── mqtt.py         # paho-mqtt Client: connect() + publish()
-│   └── routes/
-│       ├── admin.py    # Seiten-Routen via send_from_directory
-│       └── api.py      # REST API /api/*
-├── frontend/
-│   ├── templates/      # Standalone HTML (kein Jinja2 extends)
-│   │   ├── dashboard.html
-│   │   ├── devices.html
-│   │   ├── groups.html
-│   │   └── notifications.html
-│   └── static/         # CSS + JS pro Seite
-│       ├── dashboard/
-│       ├── devices/
-│       ├── groups/
-│       └── notifications/
-├── mqtt/
-│   ├── sender.py       # CLI-Testsender (localhost)
-│   └── receiver.py     # Client für Kollege (Windows), IP eintragen
-└── requirements.txt
+backend/            app.py, models.py, mqtt.py, routes/{admin,api}.py
+frontend/           templates/ + static/ (je Seite css+js)
+watch-firmware/     ESP32-Firmware (src/main.cpp, config.h, platformio.ini)
+test-clients/       sender.py, receiver.py, device_client.py (Watch-Emulator)
+PI_SETUP.md · PROJECT_OVERVIEW.md · README.md · requirements.txt
 ```
+**Nicht verwechseln:** `backend/mqtt.py` = Broker-Anbindung des Servers.
+`test-clients/` = lose PC-Testskripte (nicht Teil des Servers).
 
-## Seiten
-| Route | Datei | Funktion |
-|-------|-------|----------|
-| `/dashboard` | dashboard.html | Stat-Cards + letzte Notifications |
-| `/devices` | devices.html | Geräte registrieren/löschen |
-| `/groups` | groups.html | Gruppen + Gerätezuweisung |
-| `/notifications` | notifications.html | Nachricht senden + Verlauf |
-
-## REST API
-| Method | Endpoint | Body |
-|--------|----------|------|
-| GET | `/api/devices` | — |
-| POST | `/api/devices` | `{name, mac}` |
-| DELETE | `/api/devices/:id` | — |
-| GET | `/api/groups` | — |
-| POST | `/api/groups` | `{name}` |
-| PUT | `/api/groups/:id` | `{name}` |
-| DELETE | `/api/groups/:id` | — |
-| PUT | `/api/groups/:id/devices` | `{device_ids:[]}` |
-| GET | `/api/notifications` | — |
-| POST | `/api/notifications` | `{message, group_id}` |
+## Seiten / REST API
+| Route | Funktion |            | Endpoint | Body |
+|---|---|---|---|---|
+| `/dashboard` | Stats + letzte | GET/POST/DELETE | `/api/devices` | `{name, mac}` |
+| `/devices` | Geräte | GET/POST/PUT/DELETE | `/api/groups[/:id]` | `{name}` |
+| `/groups` | Gruppen | PUT | `/api/groups/:id/devices` | `{device_ids:[]}` |
+| `/notifications` | Senden + Verlauf | GET/POST | `/api/notifications` | `{message, group_id}` |
 
 ## MQTT
-- Broker läuft auf diesem Laptop (localhost:1883)
-- Backend publiziert nach jedem `POST /api/notifications`
-- Topic: `smartserve/groups/{group_id}`
-- Payload: `{"group_id", "group_name", "message", "timestamp"}`
-- Kollege subscribt mit `mqtt/receiver.py` auf `smartserve/#`
-- `BROKER`-IP in `mqtt/receiver.py` anpassen (Hotspot-IP)
+- Broker am Pi (localhost:1883 aus Backend-Sicht). `backend/mqtt.py`: `BROKER="localhost"`.
+- Backend publiziert nach `POST /api/notifications` → Topic `smartserve/groups/{group_id}`.
+- Topics: `smartserve/groups/{id}` (Backend→Clients), `smartserve/device/{MAC}` (direkt),
+  `smartserve/heartbeat` (Client→Backend), `smartserve/ack/{id}` (accept/decline/done).
+- Payload `groups/{id}`: `{notification_id, group_id, group_name, message, timestamp, type, task_status}`.
+- Watch (`watch-firmware/`) nutzt feste Broker-IP `10.42.0.1` (kein mDNS am ESP).
 
 ## DB-Modell
 ```
 Device:       id, name, mac (unique), status, last_seen
 Group:        id, name (unique)
 device_group: device_id FK, group_id FK  (many-to-many)
-Notification: id, message, timestamp, group_id FK
+Notification: id, message, timestamp, group_id FK, task_status
 ```
 
 ## Bekannte Eigenheiten
 - `Group.to_dict()` gibt `device_ids` (int[]) zurück, nicht Objekte
-- MQTT-Fehler bei Start = OK, Broker einfach nicht gestartet
+- MQTT-Fehler bei Start = OK (Broker nicht gestartet)
 - `send_from_directory` statt `render_template` — kein Jinja2 in frontend/templates
-- paho-mqtt 2.x: `CallbackAPIVersion.VERSION1` nötig beim Client-Konstruktor
+- paho-mqtt 2.x: `CallbackAPIVersion.VERSION1` nötig
+- gunicorn nur mit **1 Worker** (sonst doppelte MQTT-Clients/Heartbeat)
+- Mosquitto nach Config-Änderung **restart** (nicht nur enable), sonst nur localhost

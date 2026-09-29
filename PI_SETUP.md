@@ -18,7 +18,7 @@ das **Flask-Backend** (Server-Appliance). Der Laptop ist nur noch Admin-Browser.
 - Mosquitto-Config `/etc/mosquitto/conf.d/smartserve.conf`
 - systemd-Service fürs Backend (autostart)
 
-**NICHT auf den Pi:** `mqtt/` (Testclients), `watch-firmware/` (läuft am ESP32).
+**NICHT auf den Pi:** `test-clients/` (Testclients), `watch-firmware/` (läuft am ESP32).
 
 > **Wichtig:** Backend mit **nur 1 gunicorn-Worker** starten. Mehrere Worker = mehrere
 > MQTT-Clients (`mqtt.connect()` läuft je Prozess) → doppelte Heartbeat-/Ack-Verarbeitung

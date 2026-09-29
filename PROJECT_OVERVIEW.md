@@ -28,7 +28,7 @@ lokalen Netz, ohne Cloud.
 | Backend (Flask + REST + MQTT) | Raspberry Pi | `backend/` |
 | Admin-Web-UI | im Browser (vom Backend serviert) | `frontend/` |
 | Watch-Firmware | ESP32 WROOM-32 | `watch-firmware/` |
-| Test-/Emulator-Clients | Laptop oder Pi (manuell) | `mqtt/` |
+| Test-/Emulator-Clients | Laptop oder Pi (manuell) | `test-clients/` |
 
 ## Ordner-Landkarte
 
@@ -49,7 +49,7 @@ SmartServe/
 │   ├── src/config.h      #   WLAN/Broker/Gruppe (gitignored — Zugangsdaten)
 │   ├── src/config.example.h  # Vorlage dazu
 │   └── platformio.ini    #   Board + Display-Pins + Libraries
-├── mqtt/                 # Test-/Emulator-Skripte (PC-seitig, nicht am Pi nötig)
+├── test-clients/         # Test-/Emulator-Skripte (PC-seitig, nicht am Pi nötig)
 │   ├── sender.py         #   CLI: Testnachricht senden
 │   ├── receiver.py       #   einfacher Subscriber (Watch-Ersatz zum Mitlesen)
 │   └── device_client.py  #   VOLLER Watch-Emulator (accept/decline/done + Heartbeat)
@@ -63,8 +63,8 @@ SmartServe/
 ## Wichtig: zwei „mqtt" nicht verwechseln
 - **`backend/mqtt.py`** = fester Bestandteil des Servers. Publiziert Nachrichten und
   verarbeitet Heartbeat/Ack. Läuft immer mit dem Backend am Pi.
-- **`mqtt/`** (Ordner) = lose Hilfs-/Testskripte für den PC (Sender, Emulator). Nur
-  manuell zum Testen. Läuft NICHT am Pi im Normalbetrieb.
+- **`test-clients/`** (Ordner) = lose Hilfs-/Testskripte für den PC (Sender, Emulator).
+  Nur manuell zum Testen. Läuft NICHT am Pi im Normalbetrieb.
 
 ## Datenfluss (MQTT-Topics)
 | Topic | Richtung | Zweck |

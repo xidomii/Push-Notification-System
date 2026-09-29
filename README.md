@@ -1,247 +1,133 @@
-# SmartServe – Push Notification Admin System
+# SmartServe – Lokales Push-Benachrichtigungssystem
 
-Web-based admin dashboard for sending push notifications to device groups via MQTT. Admin registers devices by MAC address, organizes them into groups, and sends messages from the browser — delivered in real-time to all connected clients.
+Ein Admin sendet über ein Web-Dashboard Nachrichten/Aufgaben an selbstgebaute
+Smartwatches. Übertragung per MQTT, alles im lokalen Netz, ohne Cloud.
+
+> **Neu hier? → [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** erklärt in einer Seite,
+> welche Komponente wo läuft und was zu was gehört.
+> **Pi aufsetzen? → [PI_SETUP.md](PI_SETUP.md)** (Schritt für Schritt).
 
 ---
+
+## Komponenten
+| Komponente | Läuft auf | Ordner |
+|---|---|---|
+| MQTT-Broker (Mosquitto) | Raspberry Pi | System-Paket |
+| Backend (Flask + REST + MQTT) | Raspberry Pi | `backend/` |
+| Admin-Web-UI | Browser | `frontend/` |
+| Smartwatch-Firmware | ESP32 WROOM-32 + GC9A01-Display | `watch-firmware/` |
+| Test-/Emulator-Clients | Laptop/Pi (manuell) | `test-clients/` |
+
+Der Pi ist zugleich WLAN-Access-Point **"SmartServe"** (Pi = `10.42.0.1`).
+Admin-Dashboard: `http://10.42.0.1:5000`.
 
 ## Features
+- **Geräteverwaltung** — Registrierung per MAC, Online/Offline via Heartbeat
+- **Gruppen** — Geräte zuordnen, umbenennen, löschen
+- **Benachrichtigungen** — Nachricht an Gruppe → sofort per MQTT verteilt
+- **Aufgaben-Workflow** — Clients können accept / decline / done zurückmelden
+- **Dashboard** — Statistik + letzte Benachrichtigungen
+- **REST-API** — kompletter JSON-API
+- **SQLite** — nullkonfig, wird beim ersten Start erzeugt
 
-- **Device Management** — Register devices by name and MAC, live online/offline status via heartbeat
-- **Group Management** — Create groups, assign devices, rename and delete
-- **Notifications** — Send messages to a group from the browser, published to MQTT broker instantly
-- **Dashboard** — Stats overview + recent notification history
-- **MQTT Integration** — Backend publishes to `smartserve/groups/{id}`, clients subscribe and receive messages
-- **Device Heartbeat** — Clients send heartbeat every 30s, backend marks them online/offline automatically
-- **REST API** — Full JSON API for all operations
-- **SQLite persistence** — Zero-config local DB, auto-created on first run
+## Tech-Stack
+| Layer | Technologie |
+|---|---|
+| Backend | Python 3, Flask, Flask-SQLAlchemy, Flask-CORS, paho-mqtt 2.x |
+| DB | SQLite |
+| Frontend | Vanilla HTML/CSS/JS, IBM Plex |
+| Broker | Mosquitto |
+| Watch | ESP32 WROOM-32, Arduino/PlatformIO, TFT_eSPI (GC9A01), PubSubClient, ArduinoJson |
+| Deployment | Raspberry Pi (systemd + gunicorn), Pi als WLAN-AP |
 
----
-
-## Tech Stack
-
-| Layer    | Technology                              |
-|----------|-----------------------------------------|
-| Backend  | Python 3, Flask, Flask-SQLAlchemy       |
-| Database | SQLite (via SQLAlchemy ORM)             |
-| Frontend | Vanilla HTML / CSS / JS, IBM Plex fonts |
-| MQTT     | paho-mqtt 2.x, Mosquitto broker         |
-| CORS     | Flask-CORS                              |
-
----
-
-## Project Structure
-
+## Projektstruktur
 ```
 SmartServe/
-├── backend/
-│   ├── app.py              # App factory, DB init, MQTT connect on startup
-│   ├── models.py           # Device, Group, Notification (SQLAlchemy)
-│   ├── mqtt.py             # paho-mqtt client: publish notifications + heartbeat subscriber
-│   └── routes/
-│       ├── admin.py        # Page routes via send_from_directory
-│       └── api.py          # REST API /api/*
-├── frontend/
-│   ├── templates/          # Standalone HTML pages (no Jinja2)
-│   │   ├── dashboard.html
-│   │   ├── devices.html
-│   │   ├── groups.html
-│   │   └── notifications.html
-│   └── static/             # CSS + JS per page
-│       ├── dashboard/
-│       ├── devices/
-│       ├── groups/
-│       └── notifications/
-├── mqtt/
-│   ├── device_client.py    # Client script for colleague laptops (heartbeat + receive)
-│   ├── sender.py           # CLI test sender
-│   └── receiver.py         # Simple subscriber (debug only)
-├── requirements.txt
-├── CLAUDE.md
-└── README.md
+├── backend/              # Server (läuft am Pi)
+│   ├── app.py            #   Flask-App-Factory, DB-Init, MQTT-Connect
+│   ├── models.py         #   Device, Group, Notification (SQLAlchemy)
+│   ├── mqtt.py           #   Broker-Anbindung des Backends (publish + heartbeat/ack)
+│   └── routes/{admin,api}.py
+├── frontend/             # Admin-Dashboard (Browser)
+│   ├── templates/        #   dashboard/devices/groups/notifications.html
+│   └── static/           #   style.css + script.js pro Seite
+├── watch-firmware/       # ESP32-Firmware (C++/PlatformIO) — siehe eigenes README
+├── test-clients/         # PC-seitige Test-/Emulatorskripte
+│   ├── device_client.py  #   voller Watch-Emulator (accept/decline/done + heartbeat)
+│   ├── sender.py         #   CLI-Testsender
+│   └── receiver.py       #   einfacher Subscriber (Mitlesen)
+├── PI_SETUP.md           # Pi einrichten (Broker + Backend + AP)
+├── PROJECT_OVERVIEW.md   # Architektur-Landkarte
+├── requirements.txt · CLAUDE.md · README.md
 ```
 
----
-
-## Setup & Installation
-
-### 1. Clone the repository
-
+## Lokale Entwicklung (ohne Pi)
 ```bash
-git clone https://github.com/xidomii/Push-Notification-System.git
-cd Push-Notification-System
-```
-
-### 2. Create and activate a virtual environment
-
-```bash
-python -m venv venv
-source venv/bin/activate      # Linux / macOS
-venv\Scripts\activate         # Windows
-```
-
-### 3. Install dependencies
-
-```bash
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+# Broker lokal:
+echo -e "listener 1883\nallow_anonymous true" > /tmp/mqtt.conf && mosquitto -c /tmp/mqtt.conf -v
+# Backend:
+cd backend && python app.py        # http://localhost:5000
 ```
+Produktiv-Deployment am Pi (gunicorn + systemd + AP): siehe **PI_SETUP.md**.
 
-### 4. Start the MQTT broker (broker laptop only)
-
-```bash
-echo -e "listener 1883\nallow_anonymous true" > /tmp/mqtt.conf
-mosquitto -c /tmp/mqtt.conf -v
-```
-
-> Mosquitto must be installed: `sudo pacman -S mosquitto` (Arch) / `winget install mosquitto` (Windows)
-
-### 5. Start the backend
-
-```bash
-cd backend
-python app.py
-```
-
-App starts at **http://localhost:5000**. SQLite DB auto-created on first run. MQTT connects automatically — if broker is down, app still starts with a warning.
-
----
-
-## Client Setup (colleague laptops)
-
-Each client laptop runs `mqtt/device_client.py`. Edit two lines before starting:
-
-```python
-BROKER = "192.168.X.X"        # IP of the broker laptop (same network/hotspot)
-MAC    = "AA:BB:CC:DD:EE:FF"  # this laptop's MAC address
-```
-
-Find MAC on Windows:
-```
-ipconfig /all  →  "Physische Adresse"
-```
-
-Install and run:
-```bash
-pip install paho-mqtt
-python mqtt/device_client.py
-```
-
-The client:
-- Connects to the broker
-- Sends a heartbeat every 30s → backend marks the device as **online**
-- Receives all group notifications in real-time
-- After 60s without heartbeat → device shown as **offline**
-
-> The device must be registered in the web UI (`/devices`) with the exact same MAC before the heartbeat is recognized.
-
----
+## Clients: Watch + Emulator
+- **Echte Watch:** `watch-firmware/` auf einen ESP32 flashen (eigenes README dort).
+- **Emulator (ohne Hardware):** `test-clients/device_client.py` — bildet die Watch nach
+  (subscribe + Heartbeat + accept/decline/done). Vor Start `BROKER` (Pi-IP bzw.
+  `localhost` am Pi) und `MAC` setzen; Gerät mit dieser MAC vorher im `/devices`
+  registrieren, sonst wird der Heartbeat ignoriert.
 
 ## Pages
-
-| Route             | Description                                      |
-|-------------------|--------------------------------------------------|
-| `/dashboard`      | Stats: device/group/notification counts + recent history |
-| `/devices`        | Register devices, view online/offline status     |
-| `/groups`         | Create groups, assign devices                    |
-| `/notifications`  | Send message to a group, view notification log   |
-
----
+| Route | Beschreibung |
+|---|---|
+| `/dashboard` | Statistik + letzte Benachrichtigungen |
+| `/devices` | Geräte registrieren, Online/Offline |
+| `/groups` | Gruppen + Gerätezuweisung |
+| `/notifications` | Nachricht senden + Verlauf |
 
 ## REST API
-
 ### Devices
-
-| Method | Endpoint           | Body            | Description           |
-|--------|--------------------|-----------------|-----------------------|
-| GET    | `/api/devices`     | —               | List all devices      |
-| POST   | `/api/devices`     | `{name, mac}`   | Register device       |
-| DELETE | `/api/devices/:id` | —               | Delete device         |
-
+| Method | Endpoint | Body |
+|---|---|---|
+| GET | `/api/devices` | — |
+| POST | `/api/devices` | `{name, mac}` |
+| DELETE | `/api/devices/:id` | — |
 ### Groups
-
-| Method | Endpoint                  | Body                    | Description            |
-|--------|---------------------------|-------------------------|------------------------|
-| GET    | `/api/groups`             | —                       | List all groups        |
-| POST   | `/api/groups`             | `{name}`                | Create group           |
-| PUT    | `/api/groups/:id`         | `{name}`                | Rename group           |
-| DELETE | `/api/groups/:id`         | —                       | Delete group           |
-| PUT    | `/api/groups/:id/devices` | `{device_ids: [1,2,…]}` | Set device assignments |
-
+| Method | Endpoint | Body |
+|---|---|---|
+| GET | `/api/groups` | — |
+| POST | `/api/groups` | `{name}` |
+| PUT | `/api/groups/:id` | `{name}` |
+| DELETE | `/api/groups/:id` | — |
+| PUT | `/api/groups/:id/devices` | `{device_ids:[…]}` |
 ### Notifications
+| Method | Endpoint | Body |
+|---|---|---|
+| GET | `/api/notifications` | — |
+| POST | `/api/notifications` | `{message, group_id}` (+ MQTT publish) |
 
-| Method | Endpoint              | Body                   | Description                        |
-|--------|-----------------------|------------------------|------------------------------------|
-| GET    | `/api/notifications`  | —                      | List all notifications             |
-| POST   | `/api/notifications`  | `{message, group_id}`  | Send notification (+ MQTT publish) |
+## MQTT-Topics
+| Topic | Richtung | Zweck |
+|---|---|---|
+| `smartserve/groups/{id}` | Backend → Clients | neue Aufgabe / Statusupdate |
+| `smartserve/device/{MAC}` | Backend → ein Client | direktes Feedback |
+| `smartserve/heartbeat` | Client → Backend | „online" (alle 30s) |
+| `smartserve/ack/{id}` | Client → Backend | accept / decline / done |
 
-### Examples
-
-```bash
-# Register a device
-curl -X POST http://localhost:5000/api/devices \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Küchen-Terminal", "mac": "AA:BB:CC:DD:EE:FF"}'
-
-# Send a notification
-curl -X POST http://localhost:5000/api/notifications \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Tisch 3 bitte bedienen", "group_id": 1}'
+## Datenmodell
 ```
-
----
-
-## MQTT Architecture
-
+Device        id, name, mac (unique), status, last_seen
+Group         id, name (unique)
+device_group  device_id ↔ group_id (many-to-many)
+Notification  id, message, timestamp, group_id
 ```
-[Browser] → POST /api/notifications
-                ↓
-         [Flask Backend]
-                ↓ mqtt.publish()
-         [Mosquitto Broker :1883]
-                ↓
-    smartserve/groups/{group_id}
-                ↓
-     [device_client.py on each laptop]
-```
-
-| Topic                       | Direction        | Payload                                          |
-|-----------------------------|------------------|--------------------------------------------------|
-| `smartserve/groups/{id}`    | backend → client | `{group_id, group_name, message, timestamp}`     |
-| `smartserve/heartbeat`      | client → backend | `{mac}`                                          |
-
----
-
-## Data Model
-
-```
-Device
-  id        INTEGER  PRIMARY KEY
-  name      TEXT     NOT NULL
-  mac       TEXT     UNIQUE NOT NULL   (format: AA:BB:CC:DD:EE:FF)
-  status    TEXT     DEFAULT 'offline' (computed dynamically from last_seen)
-  last_seen TEXT                       (ISO 8601 UTC timestamp)
-
-Group
-  id        INTEGER  PRIMARY KEY
-  name      TEXT     UNIQUE NOT NULL
-
-device_group  (many-to-many)
-  device_id → Device.id
-  group_id  → Group.id
-
-Notification
-  id        INTEGER  PRIMARY KEY
-  message   TEXT     NOT NULL
-  timestamp TEXT     NOT NULL
-  group_id  → Group.id
-```
-
----
 
 ## Notes
-
-- MAC addresses stored uppercase, both `:` and `-` separators accepted in heartbeat
-- Device online if heartbeat received within last 60 seconds
-- MQTT broker down on startup = warning only, app still runs
-- `send_from_directory` used for all frontend pages — no Jinja2 templating
-- paho-mqtt 2.x requires `CallbackAPIVersion.VERSION1` in Client constructor
-- DB file (`smartserve.db`) is gitignored
+- MAC-Adressen uppercase gespeichert, `:` und `-` akzeptiert
+- Gerät online, wenn Heartbeat < 60 s
+- Broker beim Start nicht da = nur Warnung, App läuft weiter
+- `send_from_directory` für Frontend-Seiten (kein Jinja2)
+- paho-mqtt 2.x braucht `CallbackAPIVersion.VERSION1`
+- `smartserve.db` ist gitignored
