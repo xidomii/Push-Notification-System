@@ -8,7 +8,7 @@ SmartServe-Backend über MQTT und zeigt sie am Display an.
 ## Hardware
 - **MCU:** ESP32 WROOM-32 (klassisch, Board `esp32dev`)
 - **Display:** 1.28" rund, GC9A01, 240×240, SPI (kein Touch)
-- **Eingabe:** 3 Taster (accept/decline/done) — erst ab MS4
+- **Eingabe:** keine (Aufgabe = reine Anzeige). Accept/decline/done-Workflow entfernt.
 
 ### Verdrahtung GC9A01 → ESP32 WROOM-32
 | Display | ESP32 |
@@ -30,7 +30,7 @@ SmartServe-Backend über MQTT und zeigt sie am Display an.
 ## MQTT-Contract (muss zum Backend passen, siehe `../backend/mqtt.py`)
 | Richtung | Topic | Payload | ab |
 |---|---|---|---|
-| empfangen | `smartserve/groups/{GROUP_ID}` | `type:task` / `type:task_status` | **MS1/MS2** |
+| empfangen | `smartserve/groups/+` (alle Gruppen) | `type:task` | **MS1/MS2** |
 | empfangen | `smartserve/device/{MAC}` | direktes Feedback | MS4 |
 | senden | `smartserve/heartbeat` | `{mac}` alle 30s | MS3 |
 | senden | `smartserve/ack/{notification_id}` | `{mac, action}` accept\|decline\|done | MS4 |
@@ -60,14 +60,12 @@ pio device monitor -b 115200        # serielle Ausgabe
 - **Design-Referenz / Emulator:** `gui-emulator/index.html` (im Browser öffnen) —
   zeigt die eingefrorene GUI (Watchface / Aufgabe / Liste) auf einem 240×240-Kreis.
 - **Umsetzung:** LVGL (`esp32dev-lvgl`, `src/main_lvgl.cpp`, Config `include/lv_conf.h`).
-  **Volle Screens am Display umgesetzt (auf HW bestätigt):**
-  Boot-Sequenz · Watchface (Statuspunkt + Uhr + Brand) · Aufgabe (Gruppen-Chip +
-  Nachricht + Status-Badge) · Erledigt-Splash · Liste · farbiger Status-Ring am Rand.
-- **Eingabe:** 3 physische Taster (`BTN_ACCEPT`/`BTN_DECLINE`/`BTN_DONE` in `config.h`,
-  GPIO 32/33/25, aktiv LOW gegen GND mit internem Pull-up). Navigation:
-  Aufgabe → annehmen/ablehnen, 2. Druck annehmen = erledigt; Watchface ↔ Liste.
-  Die runden ✕/✓-Buttons am Screen sind reine Optik (kein Touch), ausgelöst wird per
-  Taster. Ohne verdrahtete Taster läuft die GUI trotzdem (MQTT → Aufgabe), Pins `-1`.
+  **Screens am Display umgesetzt (auf HW bestätigt):**
+  Boot-Sequenz · Watchface (Statuspunkt + Uhr + Datum + Brand) · Aufgabe
+  (Gruppen-Chip + Nachricht + Zeit) · farbiger Status-Ring am Rand.
+- **Ablauf Aufgabe:** kommt eine Nachricht → Aufgaben-Screen für **10 s** → zurück zum
+  Watchface. **Reine Anzeige, kein accept/decline/done** (bewusst entfernt). Neue
+  Nachricht während der Anzeige setzt die 10 s neu. Keine Taster/Buttons mehr.
 - **Uhrzeit:** der Pi hängt am Hotspot → holt die Zeit per NTP und publisht sie als
   retained Topic `smartserve/time` (`{"epoch": <lokale Wanduhr Europe/Vienna>}`, alle 10 s).
   Watch rechnet daraus HH:MM:SS + Datum. Ohne Sync → `--:--`.

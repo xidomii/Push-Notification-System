@@ -91,7 +91,7 @@ void ensureWifi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
   g_mac    = WiFi.macAddress();
-  subGroup = "smartserve/groups/" + String(GROUP_ID);
+  subGroup = "smartserve/groups/+";        // alle Gruppen (Wildcard)
   MDNS.begin("smartserve-watch");
   Serial.printf("\n[WiFi] verbunden. IP=%s MAC=%s\n",
                 WiFi.localIP().toString().c_str(), g_mac.c_str());
