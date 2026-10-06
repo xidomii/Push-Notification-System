@@ -13,6 +13,7 @@
 // ============================================================
 
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <TFT_eSPI.h>
@@ -91,15 +92,28 @@ void ensureWifi() {
   while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
   g_mac    = WiFi.macAddress();
   subGroup = "smartserve/groups/" + String(GROUP_ID);
+  MDNS.begin("smartserve-watch");
   Serial.printf("\n[WiFi] verbunden. IP=%s MAC=%s\n",
                 WiFi.localIP().toString().c_str(), g_mac.c_str());
+}
+
+// Pi-Broker finden: mDNS (smartserve.local) zuerst, sonst Fallback-IP aus config.h
+void resolveBroker() {
+  IPAddress ip = MDNS.queryHost(PI_HOSTNAME, 2000);
+  if ((uint32_t)ip != 0) {
+    mqtt.setServer(ip, MQTT_PORT);
+    Serial.printf("[mDNS] %s.local -> %s\n", PI_HOSTNAME, ip.toString().c_str());
+  } else {
+    mqtt.setServer(MQTT_HOST, MQTT_PORT);
+    Serial.printf("[mDNS] fehlgeschlagen -> Fallback %s\n", MQTT_HOST);
+  }
 }
 
 // ---------------------------------------------------------------- MQTT
 void ensureMqtt() {
   while (!mqtt.connected()) {
-    Serial.printf("[MQTT] verbinde mit %s:%d ...\n", MQTT_HOST, MQTT_PORT);
     showStatus("Broker...", TFT_DARKGREY);
+    resolveBroker();
     String cid = "watch-" + g_mac;
     if (mqtt.connect(cid.c_str())) {
       mqtt.subscribe(subGroup.c_str(), 1);
@@ -123,8 +137,7 @@ void setup() {
   showStatus("SmartServe", TFT_WHITE);
 
   ensureWifi();
-  mqtt.setServer(MQTT_HOST, MQTT_PORT);
-  mqtt.setCallback(onMessage);
+  mqtt.setCallback(onMessage);           // Broker-IP setzt resolveBroker() in ensureMqtt
   mqtt.setBufferSize(512);
   ensureMqtt();
 }

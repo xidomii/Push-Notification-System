@@ -104,46 +104,57 @@ sudo systemctl enable --now smartserve
 sudo systemctl status smartserve
 ```
 
-## Pi als WLAN-Access-Point (empfohlen fürs finale Setup)
+## Pi als Hotspot-Client + NTP (aktuelles Setup)
 
-Der Pi spannt sein eigenes WLAN auf; Watch + Admin-Laptop treten bei. Kein externer
-Router, unabhängig vom Schul-/Heimnetz — passt zur "lokales System"-Idee. Bei RPi OS
-Lite (Bookworm) via NetworkManager (`nmcli`), kein hostapd/dnsmasq nötig.
+**Kein eigener AP mehr.** Der Pi verbindet sich beim Booten mit dem Handy-Hotspot →
+Internetzugang → Uhrzeit per NTP. Watch + Admin-Laptop hängen am selben Hotspot.
+Der Pi stellt die echte Zeit über MQTT (`smartserve/time`, retained) für die Watch bereit.
 
-> **Achtung:** Sobald der AP aktiv ist, wird `wlan0` zum Access Point → eine bestehende
-> SSH-Verbindung übers Heim-WLAN bricht ab. Danach ins Pi-WLAN "SmartServe" verbinden und
-> `ssh pi@10.42.0.1` (oder `ssh pi@smartserve.local`). Am besten per Ethernet einrichten.
+> **Wichtig:**
+> - Hotspot muss **2,4 GHz** anbieten (klassischer ESP32 kann kein 5 GHz).
+> - Hotspot **vor** dem Pi-Boot einschalten (sonst kein Autoconnect).
+> - Pi-IP am Hotspot ist **DHCP-dynamisch** → Watch findet den Pi per mDNS
+>   (`smartserve.local`, avahi am Pi). Fallback: feste IP in `watch-firmware/src/config.h`
+>   (`MQTT_HOST`), vom Hotspot ablesen mit `hostname -I`.
 
 ```bash
-# 1) WLAN-Land setzen (Regulierung, sonst kein AP)
+# 0) Alten AP deaktivieren (falls vorhanden)
+sudo nmcli con down smartserve-ap 2>/dev/null
+sudo nmcli con modify smartserve-ap connection.autoconnect no 2>/dev/null
+# optional ganz weg:  sudo nmcli con delete smartserve-ap
+
+# 1) WLAN-Land setzen (Regulierung)
 sudo raspi-config nonint do_wifi_country AT
 
-# 2) AP-Profil anlegen
-sudo nmcli connection add type wifi ifname wlan0 con-name smartserve-ap autoconnect yes ssid SmartServe
+# 2) Hotspot-Profil anlegen (Autoconnect, hohe Prioritaet)
+sudo nmcli con add type wifi ifname wlan0 con-name hotspot ssid "<HOTSPOT_SSID>"
+sudo nmcli con modify hotspot wifi-sec.key-mgmt wpa-psk wifi-sec.psk "<HOTSPOT_PW>"
+sudo nmcli con modify hotspot connection.autoconnect yes connection.autoconnect-priority 100
+sudo nmcli con up hotspot
 
-# 3) 2,4-GHz-AP (ESP kann nur 2,4 GHz), fester Kanal, eigenes Subnetz mit DHCP (Pi = 10.42.0.1)
-sudo nmcli connection modify smartserve-ap 802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 ipv4.method shared
+# 3) Zeit + NTP
+sudo timedatectl set-timezone Europe/Vienna
+sudo timedatectl set-ntp true
+timedatectl status          # -> "System clock synchronized: yes", "NTP service: active"
 
-# 4) WLAN-Passwort + WPA2 erzwingen (WICHTIG: klassischer ESP32 kommt mit WPA1 oft nicht klar)
-sudo nmcli connection modify smartserve-ap \
-  802-11-wireless-security.key-mgmt wpa-psk \
-  802-11-wireless-security.proto rsn \
-  802-11-wireless-security.pairwise ccmp \
-  802-11-wireless-security.group ccmp \
-  802-11-wireless-security.psk "geheim1234"
+# 4) Broker auf allen Interfaces (nicht an AP-IP gebunden)
+#    /etc/mosquitto/conf.d/smartserve.conf:  listener 1883 0.0.0.0
+grep -R listener /etc/mosquitto/conf.d/ ; sudo systemctl restart mosquitto
 
-# 5) AP starten (SSH übers Heim-WLAN bricht jetzt ab)
-sudo nmcli connection up smartserve-ap
+# 5) mDNS-Responder (fuer smartserve.local)
+systemctl status avahi-daemon --no-pager
 
-# 6) Neu verbinden: Client ins WLAN "SmartServe", dann
-ssh pi@10.42.0.1
-
-# 7) Prüfen
-nmcli connection show --active
+# 6) Backend neu starten (publisht jetzt echte NTP-Zeit als smartserve/time)
+sudo systemctl restart smartserve.service
+hostname -I                 # Pi-IP am Hotspot -> als Fallback in config.h eintragen
 ```
 
-ESP `config.h` `MQTT_HOST` bleibt `smartserve.local` (avahi läuft auch im AP-Netz).
-Broker + Backend laufen am Pi auf `localhost` → vom AP unberührt.
+ESP `config.h`: `WIFI_SSID`/`WIFI_PASSWORD` = Hotspot; `PI_HOSTNAME="smartserve"`
+(mDNS); `MQTT_HOST` = Fallback-IP. Broker + Backend laufen am Pi auf `localhost`.
+
+> Hinweis Client-Isolation: manche Handy-Hotspots trennen Clients voneinander
+> (dann findet die Watch den Pi nicht). Android erlaubt Client-zu-Client meist;
+> falls nicht → in den Hotspot-Einstellungen Isolation deaktivieren.
 
 ## Verifikation
 ```bash
@@ -154,5 +165,6 @@ mosquitto_pub -h smartserve.local -t smartserve/groups/1 -m '{"type":"task","mes
 ## Hinweise
 - `User=pi` und Pfade `/home/pi/...` an den tatsächlichen Pi-User anpassen.
 - USB-SSD statt SD-Karte wegen SQLite-Schreiblast.
-- ESP `watch-firmware/src/config.h`: `MQTT_HOST` steht bereits auf `smartserve.local` → nichts zu ändern.
+- ESP `watch-firmware/src/config.h`: `WIFI_SSID`/`WIFI_PASSWORD` = Hotspot, `PI_HOSTNAME="smartserve"` (mDNS), `MQTT_HOST` = Fallback-IP.
 - Broker läuft lokal am Pi → `backend/mqtt.py` `BROKER = "localhost"` bleibt korrekt.
+- Zeit: `backend/mqtt.py` publisht retained `smartserve/time` (lokale NTP-Zeit) → Watch-Uhr.

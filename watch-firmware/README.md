@@ -37,8 +37,9 @@ SmartServe-Backend über MQTT und zeigt sie am Display an.
 
 ## Setup
 1. PlatformIO installieren: `pip install platformio` (oder VSCode-Extension "PlatformIO IDE").
-2. `src/config.h` aus `src/config.example.h` erstellen: WLAN (Pi-AP "SmartServe"),
-   `MQTT_HOST` = feste Pi-IP `10.42.0.1` (ESP kann kein mDNS), `GROUP_ID`.
+2. `src/config.h` aus `src/config.example.h` erstellen: WLAN = **Handy-Hotspot**
+   (2,4 GHz!), `PI_HOSTNAME="smartserve"` (Pi per mDNS `smartserve.local`),
+   `MQTT_HOST` = Fallback-IP (Pi am Hotspot, `hostname -I`), `GROUP_ID`.
 3. Display gemäß Tabelle verdrahten. Pins stehen in `platformio.ini`.
 
 ## Build-Umgebungen
@@ -59,8 +60,23 @@ pio device monitor -b 115200        # serielle Ausgabe
 - **Design-Referenz / Emulator:** `gui-emulator/index.html` (im Browser öffnen) —
   zeigt die eingefrorene GUI (Watchface / Aufgabe / Liste) auf einem 240×240-Kreis.
 - **Umsetzung:** LVGL (`esp32dev-lvgl`, `src/main_lvgl.cpp`, Config `include/lv_conf.h`).
-  Aktuell Gerüst (LVGL an GC9A01 gebunden, MQTT → Label). Die vollen Screens werden
-  gebaut, sobald das Display zum visuellen Prüfen da ist.
+  **Volle Screens am Display umgesetzt (auf HW bestätigt):**
+  Boot-Sequenz · Watchface (Statuspunkt + Uhr + Brand) · Aufgabe (Gruppen-Chip +
+  Nachricht + Status-Badge) · Erledigt-Splash · Liste · farbiger Status-Ring am Rand.
+- **Eingabe:** 3 physische Taster (`BTN_ACCEPT`/`BTN_DECLINE`/`BTN_DONE` in `config.h`,
+  GPIO 32/33/25, aktiv LOW gegen GND mit internem Pull-up). Navigation:
+  Aufgabe → annehmen/ablehnen, 2. Druck annehmen = erledigt; Watchface ↔ Liste.
+  Die runden ✕/✓-Buttons am Screen sind reine Optik (kein Touch), ausgelöst wird per
+  Taster. Ohne verdrahtete Taster läuft die GUI trotzdem (MQTT → Aufgabe), Pins `-1`.
+- **Uhrzeit:** der Pi hängt am Hotspot → holt die Zeit per NTP und publisht sie als
+  retained Topic `smartserve/time` (`{"epoch": <lokale Wanduhr Europe/Vienna>}`, alle 10 s).
+  Watch rechnet daraus HH:MM:SS + Datum. Ohne Sync → `--:--`.
+  → **Backend am Pi muss auf diesen Stand aktualisiert werden** (`backend/mqtt.py`).
+- **Limit:** eingebaute Montserrat-Fonts = nur ASCII. Dynamische Backend-Texte mit
+  Umlauten werden auf ASCII gefaltet (ä→ae, ö→oe, ü→ue, ß→ss), damit keine leeren
+  Kästchen entstehen. Pixelgenaue Umlaute = eigener Latin-1-Font (MS5).
+- **Rendering-Fix:** `LV_COLOR_16_SWAP=1` → in `flush_cb` `tft.pushColors(..., false)`
+  (sonst doppelter Byte-Swap → verpixeltes/falschfarbiges Bild).
 Testnachricht vom Pi senden:
 ```bash
 mosquitto_pub -h localhost -t smartserve/groups/1 -m '{"type":"task","group_name":"Kueche","message":"Hallo Watch"}'

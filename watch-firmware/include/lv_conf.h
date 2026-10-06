@@ -10,15 +10,18 @@
 #define LV_COLOR_16_SWAP      1
 
 // Arbeitsspeicher fuer LVGL (WROOM-32 hat kein PSRAM -> knapp halten).
-#define LV_MEM_SIZE           (36U * 1024U)
+// 48 KB: reicht fuer alle Screens + Listenzeilen.
+#define LV_MEM_SIZE           (48U * 1024U)
 
 // Tick per lv_tick_inc() aus loop() (kein eigener Timer noetig).
 #define LV_TICK_CUSTOM        0
 
 // Fonts, die die GUI nutzt (Montserrat, in LVGL enthalten).
+// 40 = grosse Uhr am Watchface, 12 = kleine Captions/Listenzeilen.
+#define LV_FONT_MONTSERRAT_12 1
 #define LV_FONT_MONTSERRAT_14 1
 #define LV_FONT_MONTSERRAT_20 1
-#define LV_FONT_MONTSERRAT_28 1
+#define LV_FONT_MONTSERRAT_40 1
 #define LV_FONT_DEFAULT       &lv_font_montserrat_14
 
 // Logging aus (spart Flash/RAM).

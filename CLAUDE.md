@@ -7,9 +7,9 @@ via MQTT. Aufgaben-Workflow: accept/decline/done. **Architektur-Landkarte:
 [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md). Pi-Setup: [PI_SETUP.md](PI_SETUP.md).**
 
 ## Wo läuft was
-- **Raspberry Pi** = Server-Appliance: Mosquitto-Broker + Flask-Backend + SQLite + WLAN-AP „SmartServe" (Pi = `10.42.0.1`).
-- **ESP32 WROOM-32 + GC9A01** = Smartwatch (`watch-firmware/`).
-- **Browser** = Admin-Dashboard (`http://10.42.0.1:5000`).
+- **Raspberry Pi** = Server-Appliance: Mosquitto-Broker + Flask-Backend + SQLite. Hängt als Client am **Handy-Hotspot** (Internet → NTP-Zeit). Kein eigener AP mehr. Pi-IP am Hotspot DHCP-dynamisch → per mDNS `smartserve.local`.
+- **ESP32 WROOM-32 + GC9A01** = Smartwatch (`watch-firmware/`), am selben Hotspot; findet Pi per mDNS (Fallback-IP in config.h).
+- **Browser** = Admin-Dashboard (`http://smartserve.local:5000`).
 
 ## Stack
 - Backend: Python 3, Flask, Flask-SQLAlchemy, Flask-CORS, paho-mqtt 2.x
@@ -45,9 +45,11 @@ PI_SETUP.md · PROJECT_OVERVIEW.md · README.md · requirements.txt
 - Broker am Pi (localhost:1883 aus Backend-Sicht). `backend/mqtt.py`: `BROKER="localhost"`.
 - Backend publiziert nach `POST /api/notifications` → Topic `smartserve/groups/{group_id}`.
 - Topics: `smartserve/groups/{id}` (Backend→Clients), `smartserve/device/{MAC}` (direkt),
-  `smartserve/heartbeat` (Client→Backend), `smartserve/ack/{id}` (accept/decline/done).
+  `smartserve/heartbeat` (Client→Backend), `smartserve/ack/{id}` (accept/decline/done),
+  `smartserve/time` (Backend→Clients, **retained**, `{epoch}` = lokale Zeit Europe/Vienna,
+  alle 10 s; Watch-Uhr, kein NTP am AP nötig).
 - Payload `groups/{id}`: `{notification_id, group_id, group_name, message, timestamp, type, task_status}`.
-- Watch (`watch-firmware/`) nutzt feste Broker-IP `10.42.0.1` (kein mDNS am ESP).
+- Watch (`watch-firmware/`) findet den Broker per mDNS (`smartserve.local`, ESP32 `ESPmDNS`), Fallback = feste IP in `config.h` (`MQTT_HOST`).
 
 ## DB-Modell
 ```

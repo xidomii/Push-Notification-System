@@ -1,13 +1,49 @@
 import paho.mqtt.client as mqtt
 import json
+import threading
+import time
 from datetime import datetime, timezone
 
-BROKER = "localhost"
-PORT   = 1883
+try:
+    from zoneinfo import ZoneInfo
+    _TZ = ZoneInfo("Europe/Vienna")
+except Exception:      # Fallback, falls tzdata fehlt
+    _TZ = None
+
+BROKER   = "localhost"
+PORT     = 1883
+TIME_SEC = 10          # Intervall des Zeit-Broadcasts
 
 _client    = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
 _connected = False
 _app       = None
+
+
+def _local_epoch():
+    """Lokale Wanduhr (Europe/Vienna) als 'Epoch' = UTC-Epoch + UTC-Offset.
+    Die Watch rechnet daraus direkt HH:MM:SS + Datum (kein TZ-Code am ESP)."""
+    if _TZ:
+        now = datetime.now(_TZ)
+        return int(now.timestamp() + now.utcoffset().total_seconds())
+    lt = time.localtime()
+    return int(time.time()) + (lt.tm_gmtoff or 0)
+
+
+def _publish_time():
+    """Aktuelle Zeit retained an die Watches senden (Topic smartserve/time)."""
+    if not _connected:
+        return
+    payload = json.dumps({"epoch": _local_epoch()})
+    _client.publish("smartserve/time", payload, qos=1, retain=True)
+
+
+def _time_loop():
+    while True:
+        try:
+            _publish_time()
+        except Exception as e:
+            print(f"[MQTT] Zeit-Broadcast-Fehler: {e}")
+        time.sleep(TIME_SEC)
 
 
 def _on_connect(client, userdata, flags, rc):
@@ -17,6 +53,7 @@ def _on_connect(client, userdata, flags, rc):
         client.subscribe("smartserve/heartbeat")
         client.subscribe("smartserve/ack/#")
         print(f"[MQTT] Broker verbunden ({BROKER}:{PORT})")
+        _publish_time()                      # retained sofort setzen
     else:
         print(f"[MQTT] Verbindung fehlgeschlagen (rc={rc})")
 
@@ -205,6 +242,7 @@ def connect(app):
     try:
         _client.connect(BROKER, PORT, keepalive=60)
         _client.loop_start()
+        threading.Thread(target=_time_loop, daemon=True).start()
     except Exception as e:
         print(f"[MQTT] Broker nicht erreichbar: {e} — MQTT deaktiviert.")
 
